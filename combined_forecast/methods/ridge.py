@@ -6,8 +6,6 @@ import pandas as pd
 from typing import List, Dict, Any
 from sklearn.linear_model import Ridge
 
-
-
 def run_ridge(
         train: pd.DataFrame, 
         test: pd.DataFrame, 
