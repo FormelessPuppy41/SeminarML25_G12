@@ -4,7 +4,10 @@ Data loader for the datasets
 import pandas as pd
 
 
-class DataLoader:
+class DataLoader: 
+    """
+    Data loader for the datasets. Used to load input, output, 50hertz and model results data.
+    """
     def __init__(self):
         self.path = 'data/data_files/'
 
@@ -46,6 +49,19 @@ class DataLoader:
         """
         path = f'{self.path}/model_results/{file_name}'
         return self._load_data(path)
+    
+    def load_50hertz_data(self, file_name: str):
+        """
+        This function loads the 50Hertz data from a CSV file.
+
+        Args:
+            file_name (str): The file name for the 50Hertz data.
+
+        Returns:
+            pd.DataFrame: The 50Hertz data.
+        """
+        path = f'{self.path}/50hertz_files/{file_name}'
+        return self._load_data
 
     
     def _load_data(self, path: str):
