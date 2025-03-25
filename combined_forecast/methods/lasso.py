@@ -6,7 +6,8 @@ import numpy as np
 from typing import List, Dict, Any
 from combined_forecast.methods.elastic_net import run_elastic_net, run_day_ahead_elastic_net
 
-
+# hallo
+# hoi terug 
 def run_lasso(
         train: pd.DataFrame,
         test: pd.DataFrame,
