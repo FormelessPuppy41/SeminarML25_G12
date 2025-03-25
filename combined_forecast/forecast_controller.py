@@ -6,7 +6,7 @@ import pandas as pd
 from typing import List, Dict, Any, Callable
 import time
 
-from configuration import ModelParameters
+from configuration import ModelParameters, FileNames
 from combined_forecast.forecast_runner import ForecastRunner
 from combined_forecast.forecast_writer import ForecastWriter
 
@@ -66,6 +66,9 @@ class ForecastController:
         # Initialize forecast writer
         self.forecast_writer = ForecastWriter()
 
+        # Initialize file names
+        self.file_names = FileNames().model_result_files
+
 
     def forecast_ridge(self):
         """
@@ -76,7 +79,7 @@ class ForecastController:
                 lambda: self.forecast_runner.run_ridge(input_params=ridge_params),
                 forecast_name='Ridge'
             )
-        self.forecast_writer.write_forecast(forecast=ridge_result, file_name='ridge_forecast.csv')
+        self.forecast_writer.write_forecast(forecast=ridge_result, file_name=self.file_names.ridge_forecast)
 
     
     def forecast_lasso(self):
@@ -88,7 +91,7 @@ class ForecastController:
                 lambda: self.forecast_runner.run_lasso(input_params=lasso_params),
                 forecast_name='Lasso'
             )
-        self.forecast_writer.write_forecast(forecast=lasso_result, file_name='lasso_forecast.csv')
+        self.forecast_writer.write_forecast(forecast=lasso_result, file_name=self.file_names.lasso_forecast)
 
     
     def forecast_elastic_net(self):
@@ -100,7 +103,7 @@ class ForecastController:
                 lambda: self.forecast_runner.run_elastic_net(input_params=elastic_net_params),
                 forecast_name='Elastic Net'
             )
-        self.forecast_writer.write_forecast(forecast=elastic_net_result, file_name='elastic_net_forecast.csv')
+        self.forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self.file_names.elastic_net_forecast)
 
     
     def forecast_adaptive_elastic_net(self):
@@ -112,7 +115,7 @@ class ForecastController:
                 lambda: self.forecast_runner.run_adaptive_elastic_net(input_params=adaptive_elastic_net_params),
                 forecast_name='Adaptive Elastic Net'
             )
-        self.forecast_writer.write_forecast(forecast=adaptive_elastic_net_result, file_name='adaptive_elastic_net_forecast.csv')
+        self.forecast_writer.write_forecast(forecast=adaptive_elastic_net_result, file_name=self.file_names.adaptive_elastic_net_forecast)
 
     
     def _time_forecaster(self, forecast_func: Callable, forecast_name: str) -> pd.DataFrame:
