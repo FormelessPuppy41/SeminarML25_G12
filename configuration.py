@@ -82,8 +82,10 @@ class FileNames:
 
         Attributes:
             - processed_data (str): The processed data file ready to be used for forecasting.
+            - sample_complete_Ty (str): The sample complete Ty file.
         """
         processed_data = 'processed_data.csv'
+        sample_complete_Ty = 'sample_complete_Ty.csv'
 
     @dataclass
     class ModelResultFiles:

@@ -59,7 +59,7 @@ class ForecastRunner:
         params['alpha'] = input_params.get('alpha', 1.0)
 
         return run_day_ahead_ridge(
-            df=self.df, 
+            df=self._df, 
             target_column=self._target, 
             feature_columns=self._features, 
             forecast_horizon=self._forecast_horizon,

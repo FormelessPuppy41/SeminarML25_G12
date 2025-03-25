@@ -8,6 +8,7 @@
 #
 
 from combined_forecast.forecast_controller import ForecastController
+from combined_forecast.forecast_result_processor import ForecastResultProcessor
 from data.data_loader import DataLoader
 
 from configuration import ModelSettings, FileNames
@@ -17,7 +18,7 @@ def run_main():
     model_settings = ModelSettings()
     file_names = FileNames()
 
-    df = DataLoader().load_output_data(file_names.output_files.processed_data)
+    df = DataLoader().load_output_data(file_names.output_files.sample_complete_Ty)
 
     forecast_controller = ForecastController(
             df=df, 
@@ -31,7 +32,11 @@ def run_main():
     
     forecast_controller.forecast_ridge()
 
+    result_df = DataLoader().load_model_results(file_names.model_result_files.ridge_forecast)
+    forecast_result_processor = ForecastResultProcessor(result_df)
+    forecast_result_processor
+
+
 if __name__ == "__main__":
     run_main()
 
-    
