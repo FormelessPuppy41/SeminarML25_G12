@@ -7,61 +7,84 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from combined_forecast.methods.elastic_net import get_model_from_params
 
-
-def run_adaptive_elastic_net(
-    train: pd.DataFrame,
-    test: pd.DataFrame,
-    target: str,
-    features: List[str],
-    params: Dict[str, Any]
+def run_day_ahead_adaptive_elastic_net(
+    df: pd.DataFrame,
+    target_column: str,
+    feature_columns: List[str],
+    forecast_horizon: int = 96,
+    rolling_window_days: int = 165,
+    param_grid: Dict[str, List[Any]] = None,
+    datetime_col: str = 'datetime',
+    freq: str = '15min',
+    grid_params: Dict[str, Any] = None
 ) -> pd.DataFrame:
     """
-    Runs adaptive Elastic Net regression with GridSearchCV using shared pipeline logic.
-
-    Args:
-        train (pd.DataFrame): The training data.
-        test (pd.DataFrame): The testing data.
-        target (str): Target column name.
-        features (List[str]): Feature column names.
-        params (Dict[str, Any]): Parameters for search and model.
+    Generate 96-step day-ahead forecasts using adaptive Elastic Net with rolling window & GridSearchCV.
 
     Returns:
-        pd.DataFrame: Test data with 'prediction' column.
+        pd.DataFrame with columns ['forecast_time', 'target_time', 'prediction', 'actual'].
     """
-    # GridSearch-related defaults
-    param_grid = params.get('param_grid', {
-        'elasticnet__alpha': [0.1, 1.0, 10.0],
-        'elasticnet__l1_ratio': [0.0, 0.25, 0.5, 0.75, 1.0]
-    })
+    if param_grid is None:
+        param_grid = {
+            'elasticnet__alpha': [0.1, 1.0, 10.0],
+            'elasticnet__l1_ratio': [0.0, 0.5, 1.0]
+        }
 
-    grid_params = {
-        'cv': params.get('cv', 5),
-        'n_jobs': params.get('n_jobs', -1),
-        'verbose': params.get('verbose', 0)
-    }
+    if grid_params is None:
+        grid_params = {
+            'cv': 5,
+            'n_jobs': -1,
+            'verbose': 0
+        }
 
-    # Extract base model pipeline and model step
-    base_params = {
-        'alpha': params.get('alpha', 1.0),
-        'l1_ratio': params.get('l1_ratio', 0.5),
-        'random_state': params.get('random_state', 42)
-    }
+    df = df.copy()
+    df[datetime_col] = pd.to_datetime(df[datetime_col])
+    df = df.set_index(datetime_col).sort_index()
 
-    pipeline = get_model_from_params(base_params)
-    model_name = pipeline.steps[-1][0]  # usually 'elasticnet' or 'ridge'
+    forecast_results = []
+    unique_dates = df.index.normalize().unique()
 
-    # Rename model step in pipeline for GridSearchCV to work
-    pipeline.steps[-1] = (model_name, pipeline.steps[-1][1])
+    for forecast_date in unique_dates[rolling_window_days:]:
+        train_end = forecast_date - pd.Timedelta(freq)
+        train_start = train_end - pd.Timedelta(days=rolling_window_days)
+        test_start = forecast_date
+        test_end = forecast_date + pd.Timedelta(minutes=(forecast_horizon - 1) * 15)
 
-    grid = GridSearchCV(pipeline, param_grid=param_grid, **grid_params)
-    grid.fit(train[features], train[target])
+        train_df = df[train_start:train_end]
+        test_df = df[test_start:test_end]
 
-    test = test.copy()
-    test['prediction'] = grid.predict(test[features])
-    test['actual'] = test[target] 
-    return test
+        if train_df.empty or test_df.empty:
+            print(f"WARNING: No data for forecast date: {forecast_date}")
+            continue
 
+        for ts in test_df.index:
+            row_df = test_df.loc[[ts]]
 
+            # Get model pipeline
+            base_params = {'alpha': 1.0, 'l1_ratio': 0.5, 'random_state': 42}
+            pipeline = get_model_from_params(base_params)
+            model_name = pipeline.steps[-1][0]
+            pipeline.steps[-1] = (model_name, pipeline.steps[-1][1])
+
+            # Tune ElasticNet
+            grid = GridSearchCV(pipeline, param_grid=param_grid, **grid_params)
+            try:
+                grid.fit(train_df[feature_columns], train_df[target_column])
+                prediction = grid.predict(row_df[feature_columns])[0]
+                actual = row_df[target_column].values[0]
+            except Exception as e:
+                print(f"Skipping {ts} due to training error: {e}")
+                continue
+
+            forecast_results.append({
+                'forecast_time': forecast_date,
+                'target_time': ts,
+                'prediction': prediction,
+                'actual': actual,
+                # 'best_params': grid.best_params_  # Uncomment if you want to log these
+            })
+
+    return pd.DataFrame(forecast_results)
 
 if __name__ == '__main__':
     from combined_forecast.utils import generate_sample_data, evaluate_forecast
@@ -71,21 +94,17 @@ if __name__ == '__main__':
     target_col = 'HR'
     feature_cols = [f'A{i}' for i in range(1, 8)]
 
-    # Split last day as test, rest as training
-    train_df = df_sample.iloc[:-96]
-    test_df = df_sample.iloc[-96:]
-
-    # Run Adaptive Elastic Net with grid search
-    forecast_df = run_adaptive_elastic_net(
-        train=train_df,
-        test=test_df,
-        target=target_col,
-        features=feature_cols,
-        params={
-            'param_grid': {
-                'elasticnet__alpha': [0.1, 1.0, 10.0],
-                'elasticnet__l1_ratio': [0.0, 0.5, 1.0]
-            },
+    # Run Adaptive Elastic Net with rolling forecast and grid search
+    forecast_df = run_day_ahead_adaptive_elastic_net(
+        df=df_sample,
+        target_column=target_col,
+        feature_columns=feature_cols,
+        rolling_window_days=5,
+        param_grid={
+            'elasticnet__alpha': [0.1, 1.0, 10.0],
+            'elasticnet__l1_ratio': [0.0, 0.5, 1.0]
+        },
+        grid_params={
             'cv': 5,
             'n_jobs': -1,
             'verbose': 1
