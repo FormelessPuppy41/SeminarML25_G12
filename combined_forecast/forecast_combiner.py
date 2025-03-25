@@ -4,7 +4,7 @@ Forecast combiner module
 # imports:
 import pandas as pd
 from typing import List, Dict, Any
-from combined_forecast.methods import run_adaptive_elastic_net, run_elastic_net, run_lasso, run_ridge
+from combined_forecast.methods import run_day_ahead_adaptive_elastic_net, run_elastic_net, run_lasso, run_ridge
 
 class ForecastCombiner:
     """
@@ -62,4 +62,4 @@ class ForecastCombiner:
         Returns:
             pd.DataFrame: The testing data with the predictions.
         """
-        return run_adaptive_elastic_net(self.train, self.test, self.target, self.features, params)
+        return run_day_ahead_adaptive_elastic_net(self.train, self.test, self.target, self.features, params)
