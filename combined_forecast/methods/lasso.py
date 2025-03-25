@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     if not forecast_df.empty:
         rmse = evaluate_forecast(forecast_df)
-        print(f"\nRMSE on forecast: {rmse:.2f}")
+        print(f"\nRMSE on LASSO forecast: {rmse:.2f}")
     else:
         print("No forecasts generated.")
 
