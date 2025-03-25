@@ -7,8 +7,12 @@
 #   - running the evaluation methods 
 #
 
-from forecast_writer.forecast_writer import ForecastWriter
-from combined_forecast.forecast_controller import ForecastCombiner
+from configuration import model_parameters
+from combined_forecast.forecast_writer import ForecastWriter
+from combined_forecast.forecast_controller import ForecastController
 from data.data_loader import DataLoader
 
 
+
+fcontroller = ForecastController()
+fcontroller.run_ridge()

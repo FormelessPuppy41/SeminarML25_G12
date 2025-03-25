@@ -13,7 +13,11 @@ class ForecastWriter:
     def __init__(self):
         self.path = 'data/data_files/model_results'
 
-    def write_forecast(self, forecast: pd.DataFrame, file_name: str):
+    def write_forecast(
+            self, 
+            forecast: pd.DataFrame, 
+            file_name: str
+        ):
         """
         This function writes the forecast to a CSV file. It overwrites the file if it already exists.
 
@@ -22,4 +26,4 @@ class ForecastWriter:
             file_name (str): The file_name for the data to write the forecast to 'data/data_files/model_results'.
         """
         path = f'{self.path}/{file_name}'
-        forecast.to_csv(path, index=False)
+        forecast.to_csv(path, index=True)

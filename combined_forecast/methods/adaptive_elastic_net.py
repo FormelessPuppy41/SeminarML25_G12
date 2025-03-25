@@ -64,7 +64,7 @@ def run_day_ahead_adaptive_elastic_net(
             pipeline.steps[-1] = (model_name, pipeline.steps[-1][1])
 
             # Tune ElasticNet
-            grid = GridSearchCV(pipeline, param_grid=param_grid, **grid_params)
+            grid = GridSearchCV(pipeline, param_grid=param_grid, **param_grid)
             try:
                 grid.fit(train_df[feature_columns], train_df[target_column])
                 prediction = grid.predict(row_df[feature_columns])[0]
@@ -77,7 +77,7 @@ def run_day_ahead_adaptive_elastic_net(
                 'target_time': ts,
                 'prediction': prediction,
                 'actual': actual,
-                'best_params': grid.best_params_  # Uncomment if you want to log these
+                'best_params': grid.best_params_ 
             })
 
     return pd.DataFrame(forecast_results)

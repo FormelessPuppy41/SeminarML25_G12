@@ -41,3 +41,5 @@ class ModelParameters:
         'n_jobs': -1,
         'verbose': 1
     }
+    
+model_parameters = ModelParameters()

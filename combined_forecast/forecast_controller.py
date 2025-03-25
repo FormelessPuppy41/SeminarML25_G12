@@ -3,12 +3,16 @@ Forecast combiner module
 """
 # imports:
 import pandas as pd
-from typing import List, Dict, Any
-from combined_forecast.methods import run_day_ahead_adaptive_elastic_net, run_day_ahead_lasso, run_day_ahead_ridge, run_day_ahead_elastic_net
+from typing import List, Dict, Any, Callable
+import time
+
+from configuration import ModelParameters
+from combined_forecast.forecast_runner import ForecastRunner
+from combined_forecast.forecast_writer import ForecastWriter
 
 class ForecastController:
     """
-    Forecast controller class. 
+    Forecast controller class. Used to forecast using the different methods.
 
     Input:
         - df: pandas DataFrame
@@ -36,6 +40,7 @@ class ForecastController:
             datetime_col: str = 'datetime',
             freq: str = '15min'
         ):
+        # Initialize input parameters
         self.df = df
         self.target = target
         self.features = features
@@ -44,112 +49,86 @@ class ForecastController:
         self.datetime_col = datetime_col
         self.freq = freq
 
-    def run_ridge(self, input_params: Dict[str, Any]):
-        """
-        This function runs the ridge regression model.
+        # Initialize model parameters
+        self.model_parameters = ModelParameters()
 
-        Args:
-            input_params (Dict[str, Any]): The parameters for the model. 
-                - alpha: regularization strength (default 1.0)
-
-        Returns:
-            pd.DataFrame: The testing data with the predictions.
-        """
-        params = {}
-        params['alpha'] = input_params.get('alpha', 1.0)
-
-        return run_day_ahead_ridge(
-            df=self.df, 
-            target_column=self.target, 
-            feature_columns=self.features, 
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
-            ridge_params=params,
-            datetime_col=self.datetime_col,
-            freq=self.freq
-        )
-
-    def run_lasso (self, input_params: Dict[str, Any]):
-        """
-        This function runs the lasso regression model.
-
-        Args:
-            input_params (Dict[str, Any]): The parameters for the model.
-                - alpha: regularization strength (default 1.0)
-
-        Returns:
-            pd.DataFrame: The testing data with the predictions.
-        """
-        params = {}
-        params['alpha'] = input_params.get('alpha', 1.0)
-
-        return run_day_ahead_lasso(
-            df=self.df, 
-            target_column=self.target, 
-            feature_columns=self.features, 
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
-            lasso_params=params,
-            datetime_col=self.datetime_col,
-            freq=self.freq
-        )
-    
-    def run_elastic_net(self, input_params: Dict[str, Any]):
-        """
-        This function runs the elastic net regression model.
-
-        Args:
-            input_params (Dict[str, Any]): The parameters for the model. 
-                - alpha: regularization strength (default 1.0)
-                - l1_ratio: L1 ratio (default 0.5)
-
-        Returns:
-            pd.DataFrame: The testing data with the predictions.
-        """
-        params = {}
-        params['alpha'] = input_params.get('alpha', 1.0)
-        params['l1_ratio'] = input_params.get('l1_ratio', 0.5)
-
-        return run_day_ahead_elastic_net(
+        # Initialize forecast runner
+        self.forecast_runner = ForecastRunner(
             df=self.df,
-            target_column=self.target,
-            feature_columns=self.features,
+            target=self.target,
+            features=self.features,
             forecast_horizon=self.forecast_horizon,
             rolling_window_days=self.rolling_window_days,
-            enet_params=params,
             datetime_col=self.datetime_col,
             freq=self.freq
         )
-    
-    def run_adaptive_elastic_net(self, input_params: Dict[str, Any]):
+
+        # Initialize forecast writer
+        self.forecast_writer = ForecastWriter()
+
+
+    def forecast_ridge(self):
         """
-        This function combines the adaptive elastic net regression model.
+        Run the ridge regression model and write the forecast to a CSV file.
+        """
+        ridge_params = self.model_parameters.ridge_params
+        ridge_result, _ = self._time_forecaster(
+                lambda: self.forecast_runner.run_ridge(input_params=ridge_params),
+                forecast_name='Ridge'
+            )
+        self.forecast_writer.write_forecast(forecast=ridge_result, file_name='ridge_forecast.csv')
+
+    
+    def forecast_lasso(self):
+        """
+        Run the lasso regression model and write the forecast to a CSV file.
+        """
+        lasso_params = self.model_parameters.lasso_params
+        lasso_result, _ = self._time_forecaster(
+                lambda: self.forecast_runner.run_lasso(input_params=lasso_params),
+                forecast_name='Lasso'
+            )
+        self.forecast_writer.write_forecast(forecast=lasso_result, file_name='lasso_forecast.csv')
+
+    
+    def forecast_elastic_net(self):
+        """
+        Run the elastic net regression model and write the forecast to a CSV file
+        """
+        elastic_net_params = self.model_parameters.elastic_net_params
+        elastic_net_result, _ = self._time_forecaster(
+                lambda: self.forecast_runner.run_elastic_net(input_params=elastic_net_params),
+                forecast_name='Elastic Net'
+            )
+        self.forecast_writer.write_forecast(forecast=elastic_net_result, file_name='elastic_net_forecast.csv')
+
+    
+    def forecast_adaptive_elastic_net(self):
+        """
+        Run the adaptive elastic net regression model and write the forecast to a CSV file
+        """
+        adaptive_elastic_net_params = self.model_parameters.adaptive_elastic_net_params
+        adaptive_elastic_net_result, _ = self._time_forecaster(
+                lambda: self.forecast_runner.run_adaptive_elastic_net(input_params=adaptive_elastic_net_params),
+                forecast_name='Adaptive Elastic Net'
+            )
+        self.forecast_writer.write_forecast(forecast=adaptive_elastic_net_result, file_name='adaptive_elastic_net_forecast.csv')
+
+    
+    def _time_forecaster(self, forecast_func: Callable, forecast_name: str) -> pd.DataFrame:
+        """
+        Time the execution of a forecast method.
 
         Args:
-            input_params (Dict[str, Any]): The parameters for the model.
-                - elasticnet__alpha: regularization strength (default [0.1, 1.0, 10.0])
-                - elasticnet__l1_ratio: L1 ratio (default [0.0, 0.5, 1.0])
-                - cv: cross-validation folds (default 5)
-                - n_jobs: number of jobs to run in parallel (default -1)
-                - verbose: verbosity level (default 0)
+            forecast_func (Callable): The forecasting method to execute.
+            forecast_name (str): The name of the forecast
 
         Returns:
-            pd.DataFrame: The testing data with the predictions.
+            pd.DataFrame: Forecast results with elapsed time printed.
         """
-        params = {}
-        params['elasticnet__alpha'] = input_params.get('elasticnet__alpha', [0.1, 1.0, 10.0])
-        params['elasticnet__l1_ratio'] = input_params.get('elasticnet__l1_ratio', [0.0, 0.5, 1.0])
-        params['cv'] = input_params.get('cv', 5)
-        params['n_jobs'] = input_params.get('n_jobs', -1)
-        params['verbose'] = input_params.get('verbose', 0)
-
-        return run_day_ahead_adaptive_elastic_net(
-            df=self.df,
-            target_column=self.target,
-            feature_columns=self.features,
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
-            datetime_col=self.datetime_col,
-            freq=self.freq,
-            param_grid=params
-        )
+        print(f"Start running forecast {forecast_name}...")
+        start_time = time.time()
+        results = forecast_func()
+        elapsed_time = time.time() - start_time
+        print(f"\u23F1 Forecast ({forecast_name}) completed in {elapsed_time:.2f} seconds.\n\n")
+        return results, elapsed_time
