@@ -41,81 +41,81 @@ class ForecastController:
             freq: str = '15min'
         ):
         # Initialize input parameters
-        self.df = df
-        self.target = target
-        self.features = features
-        self.forecast_horizon = forecast_horizon
-        self.rolling_window_days = rolling_window_days
-        self.datetime_col = datetime_col
-        self.freq = freq
+        self._df = df
+        self._target = target
+        self._features = features
+        self._forecast_horizon = forecast_horizon
+        self._rolling_window_days = rolling_window_days
+        self._datetime_col = datetime_col
+        self._freq = freq
 
         # Initialize model parameters
-        self.model_parameters = ModelParameters()
+        self._model_parameters = ModelParameters()
 
         # Initialize forecast runner
-        self.forecast_runner = ForecastRunner(
-            df=self.df,
-            target=self.target,
-            features=self.features,
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
-            datetime_col=self.datetime_col,
-            freq=self.freq
+        self._forecast_runner = ForecastRunner(
+            df=self._df,
+            target=self._target,
+            features=self._features,
+            forecast_horizon=self._forecast_horizon,
+            rolling_window_days=self._rolling_window_days,
+            datetime_col=self._datetime_col,
+            freq=self._freq
         )
 
         # Initialize forecast writer
-        self.forecast_writer = ForecastWriter()
+        self._forecast_writer = ForecastWriter()
 
         # Initialize file names
-        self.file_names = FileNames().model_result_files
+        self._file_names = FileNames().model_result_files
 
 
     def forecast_ridge(self):
         """
         Run the ridge regression model and write the forecast to a CSV file.
         """
-        ridge_params = self.model_parameters.ridge_params
+        ridge_params = self._model_parameters.ridge_params
         ridge_result, _ = self._time_forecaster(
-                lambda: self.forecast_runner.run_ridge(input_params=ridge_params),
+                lambda: self._forecast_runner.run_ridge(input_params=ridge_params),
                 forecast_name='Ridge'
             )
-        self.forecast_writer.write_forecast(forecast=ridge_result, file_name=self.file_names.ridge_forecast)
+        self._forecast_writer.write_forecast(forecast=ridge_result, file_name=self._file_names.ridge_forecast)
 
     
     def forecast_lasso(self):
         """
         Run the lasso regression model and write the forecast to a CSV file.
         """
-        lasso_params = self.model_parameters.lasso_params
+        lasso_params = self._model_parameters.lasso_params
         lasso_result, _ = self._time_forecaster(
-                lambda: self.forecast_runner.run_lasso(input_params=lasso_params),
+                lambda: self._forecast_runner.run_lasso(input_params=lasso_params),
                 forecast_name='Lasso'
             )
-        self.forecast_writer.write_forecast(forecast=lasso_result, file_name=self.file_names.lasso_forecast)
+        self._forecast_writer.write_forecast(forecast=lasso_result, file_name=self._file_names.lasso_forecast)
 
     
     def forecast_elastic_net(self):
         """
         Run the elastic net regression model and write the forecast to a CSV file
         """
-        elastic_net_params = self.model_parameters.elastic_net_params
+        elastic_net_params = self._model_parameters.elastic_net_params
         elastic_net_result, _ = self._time_forecaster(
-                lambda: self.forecast_runner.run_elastic_net(input_params=elastic_net_params),
+                lambda: self._forecast_runner.run_elastic_net(input_params=elastic_net_params),
                 forecast_name='Elastic Net'
             )
-        self.forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self.file_names.elastic_net_forecast)
+        self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.elastic_net_forecast)
 
     
     def forecast_adaptive_elastic_net(self):
         """
         Run the adaptive elastic net regression model and write the forecast to a CSV file
         """
-        adaptive_elastic_net_params = self.model_parameters.adaptive_elastic_net_params
+        adaptive_elastic_net_params = self._model_parameters.adaptive_elastic_net_params
         adaptive_elastic_net_result, _ = self._time_forecaster(
-                lambda: self.forecast_runner.run_adaptive_elastic_net(input_params=adaptive_elastic_net_params),
+                lambda: self._forecast_runner.run_adaptive_elastic_net(input_params=adaptive_elastic_net_params),
                 forecast_name='Adaptive Elastic Net'
             )
-        self.forecast_writer.write_forecast(forecast=adaptive_elastic_net_result, file_name=self.file_names.adaptive_elastic_net_forecast)
+        self._forecast_writer.write_forecast(forecast=adaptive_elastic_net_result, file_name=self._file_names.adaptive_elastic_net_forecast)
 
     
     def _time_forecaster(self, forecast_func: Callable, forecast_name: str) -> pd.DataFrame:

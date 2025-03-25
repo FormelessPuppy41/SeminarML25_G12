@@ -36,13 +36,13 @@ class ForecastRunner:
             datetime_col: str = 'datetime',
             freq: str = '15min'
         ):
-        self.df = df
-        self.target = target
-        self.features = features
-        self.forecast_horizon = forecast_horizon
-        self.rolling_window_days = rolling_window_days
-        self.datetime_col = datetime_col
-        self.freq = freq
+        self._df = df
+        self._target = target
+        self._features = features
+        self._forecast_horizon = forecast_horizon
+        self._rolling_window_days = rolling_window_days
+        self._datetime_col = datetime_col
+        self._freq = freq
 
     def run_ridge(self, input_params: Dict[str, Any]):
         """
@@ -60,13 +60,13 @@ class ForecastRunner:
 
         return run_day_ahead_ridge(
             df=self.df, 
-            target_column=self.target, 
-            feature_columns=self.features, 
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
+            target_column=self._target, 
+            feature_columns=self._features, 
+            forecast_horizon=self._forecast_horizon,
+            rolling_window_days=self._rolling_window_days,
             ridge_params=params,
-            datetime_col=self.datetime_col,
-            freq=self.freq
+            datetime_col=self._datetime_col,
+            freq=self._freq
         )
 
     def run_lasso (self, input_params: Dict[str, Any]):
@@ -85,13 +85,13 @@ class ForecastRunner:
 
         return run_day_ahead_lasso(
             df=self.df, 
-            target_column=self.target, 
-            feature_columns=self.features, 
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
+            target_column=self._target, 
+            feature_columns=self._features, 
+            forecast_horizon=self._forecast_horizon,
+            rolling_window_days=self._rolling_window_days,
             lasso_params=params,
-            datetime_col=self.datetime_col,
-            freq=self.freq
+            datetime_col=self._datetime_col,
+            freq=self._freq
         )
     
     def run_elastic_net(self, input_params: Dict[str, Any]):
@@ -112,13 +112,13 @@ class ForecastRunner:
 
         return run_day_ahead_elastic_net(
             df=self.df,
-            target_column=self.target,
-            feature_columns=self.features,
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
+            target_column=self._target,
+            feature_columns=self._features,
+            forecast_horizon=self._forecast_horizon,
+            rolling_window_days=self._rolling_window_days,
             enet_params=params,
-            datetime_col=self.datetime_col,
-            freq=self.freq
+            datetime_col=self._datetime_col,
+            freq=self._freq
         )
     
     def run_adaptive_elastic_net(self, input_params: Dict[str, Any]):
@@ -145,11 +145,11 @@ class ForecastRunner:
 
         return run_day_ahead_adaptive_elastic_net(
             df=self.df,
-            target_column=self.target,
-            feature_columns=self.features,
-            forecast_horizon=self.forecast_horizon,
-            rolling_window_days=self.rolling_window_days,
-            datetime_col=self.datetime_col,
-            freq=self.freq,
+            target_column=self._target,
+            feature_columns=self._features,
+            forecast_horizon=self._forecast_horizon,
+            rolling_window_days=self._rolling_window_days,
+            datetime_col=self._datetime_col,
+            freq=self._freq,
             param_grid=params
         )

@@ -17,7 +17,7 @@ def run_main():
     model_settings = ModelSettings()
     file_names = FileNames()
 
-    df = DataLoader().load_output_data(file_names.input_files.data_file)
+    df = DataLoader().load_output_data(file_names.output_files.processed_data)
 
     forecast_controller = ForecastController(
             df=df, 
