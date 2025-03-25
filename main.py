@@ -8,7 +8,7 @@
 #
 
 from forecast_writer.forecast_writer import ForecastWriter
-from combined_forecast.forecast_combiner import ForecastCombiner
+from combined_forecast.forecast_controller import ForecastCombiner
 from data.data_loader import DataLoader
 
 

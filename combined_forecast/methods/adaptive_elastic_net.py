@@ -15,28 +15,25 @@ def run_day_ahead_adaptive_elastic_net(
     rolling_window_days: int = 165,
     param_grid: Dict[str, List[Any]] = None,
     datetime_col: str = 'datetime',
-    freq: str = '15min',
-    grid_params: Dict[str, Any] = None
+    freq: str = '15min'
 ) -> pd.DataFrame:
     """
     Generate 96-step day-ahead forecasts using adaptive Elastic Net with rolling window & GridSearchCV.
 
+    Args:
+        - df (pd.Dataframe): DataFrame with datetime index or datetime_col, and feature/target data.
+        - target_column (str): The column to forecast.
+        - feature_columns (List[str]): List of feature columns.
+        - forecast_horizon (int): Number of time steps to forecast. Default is 96 (24 hours).
+        - rolling_window_days (int): Number of days to use for training. Default is 165 (6 months).
+        - param_grid (Dict[str, List[Any]]): Grid of hyperparameters for GridSearchCV. Default is None.
+        - datetime_col (str): Name of the datetime column. Default is 'datetime'.
+        - freq (str): Frequency of the data. Default is '15min'.
+
     Returns:
-        pd.DataFrame with columns ['forecast_time', 'target_time', 'prediction', 'actual'].
+        pd.DataFrame with columns ['target_time', 'prediction', 'actual'].
     """
-    if param_grid is None:
-        param_grid = {
-            'elasticnet__alpha': [0.1, 1.0, 10.0],
-            'elasticnet__l1_ratio': [0.0, 0.5, 1.0]
-        }
-
-    if grid_params is None:
-        grid_params = {
-            'cv': 5,
-            'n_jobs': -1,
-            'verbose': 0
-        }
-
+    #TODO: This should be done in the data preprocessing.
     df = df.copy()
     df[datetime_col] = pd.to_datetime(df[datetime_col])
     df = df.set_index(datetime_col).sort_index()
@@ -77,11 +74,10 @@ def run_day_ahead_adaptive_elastic_net(
                 continue
 
             forecast_results.append({
-                'forecast_time': forecast_date,
                 'target_time': ts,
                 'prediction': prediction,
                 'actual': actual,
-                # 'best_params': grid.best_params_  # Uncomment if you want to log these
+                'best_params': grid.best_params_  # Uncomment if you want to log these
             })
 
     return pd.DataFrame(forecast_results)
