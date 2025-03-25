@@ -142,7 +142,6 @@ def run_day_ahead_elastic_net(
 
             # Append forecast results
             forecast_results.append({
-                'forecast_time': forecast_date,
                 'target_time': ts,
                 'prediction': pred_df['prediction'].values[0],
                 'actual': pred_df[target_column].values[0]
