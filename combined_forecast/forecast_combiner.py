@@ -1,7 +1,6 @@
 """
 Forecast combiner module
 """
-
 # imports:
 import pandas as pd
 from typing import List, Dict, Any
@@ -11,7 +10,6 @@ class ForecastCombiner:
     """
     Forecast combiner class
     """
-
     def __init__(self, train: pd.DataFrame, test: pd.DataFrame, target: str, features: List[str]):
         self.train = train
         self.test = test
