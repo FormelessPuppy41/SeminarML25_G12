@@ -84,7 +84,7 @@ class ForecastRunner:
         params['alpha'] = input_params.get('alpha', 1.0)
 
         return run_day_ahead_lasso(
-            df=self.df, 
+            df=self._df, 
             target_column=self._target, 
             feature_columns=self._features, 
             forecast_horizon=self._forecast_horizon,
@@ -111,7 +111,7 @@ class ForecastRunner:
         params['l1_ratio'] = input_params.get('l1_ratio', 0.5)
 
         return run_day_ahead_elastic_net(
-            df=self.df,
+            df=self._df,
             target_column=self._target,
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,
@@ -144,7 +144,7 @@ class ForecastRunner:
         params['verbose'] = input_params.get('verbose', 0)
 
         return run_day_ahead_adaptive_elastic_net(
-            df=self.df,
+            df=self._df,
             target_column=self._target,
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,
