@@ -1,0 +1,80 @@
+"""
+This module is used to control the forecast results.
+"""
+#imports:
+from icecream import ic
+
+from combined_forecast.forecast_result_processor import ForecastResultProcessor
+from data.data_loader import DataLoader
+from configuration import FileNames
+
+file_names = FileNames()
+
+
+class ForecastResultController:
+    """
+    Forecast result controller. Used to control forecast results.
+    """
+    def __init__(self):
+        pass
+
+    def visualise_ridge(self):
+        """
+        This method is used to visualise the results of the ridge forecast.
+        """
+        result_df = DataLoader().load_model_results(file_names.model_result_files.ridge_forecast)
+        ic(result_df.head())
+        forecast_result_processor = ForecastResultProcessor(result_df)
+
+        ic(forecast_result_processor.compute_metrics())
+
+        forecast_result_processor.plot_forecast_vs_actual()
+        forecast_result_processor.plot_error_over_time()
+        forecast_result_processor.plot_error_distribution()
+        forecast_result_processor.plot_mae_by_hour()
+
+    def visualise_lasso(self):
+        """
+        This method is used to visualise the results of the lasso forecast.
+        """
+        result_df = DataLoader().load_model_results(file_names.model_result_files.lasso_forecast)
+        ic(result_df.head())
+        forecast_result_processor = ForecastResultProcessor(result_df)
+
+        ic(forecast_result_processor.compute_metrics())
+
+        forecast_result_processor.plot_forecast_vs_actual()
+        forecast_result_processor.plot_error_over_time()
+        forecast_result_processor.plot_error_distribution()
+        forecast_result_processor.plot_mae_by_hour()
+
+    def visualise_elastic_net(self):
+        """
+        This method is used to visualise the results of the elastic net forecast.
+        """
+        result_df = DataLoader().load_model_results(file_names.model_result_files.elastic_net_forecast)
+        ic(result_df.head())
+        forecast_result_processor = ForecastResultProcessor(result_df)
+
+        ic(forecast_result_processor.compute_metrics())
+
+        forecast_result_processor.plot_forecast_vs_actual()
+        forecast_result_processor.plot_error_over_time()
+        forecast_result_processor.plot_error_distribution()
+        forecast_result_processor.plot_mae_by_hour()
+
+    def visualise_adaptive_elnet(self):
+        """
+        This method is used to visualise the results of the adaptive elastic net forecast.
+        """
+        result_df = DataLoader().load_model_results(file_names.model_result_files.adaptive_elastic_net_forecast)
+        ic(result_df.head())
+        forecast_result_processor = ForecastResultProcessor(result_df)
+
+        ic(forecast_result_processor.compute_metrics())
+
+        forecast_result_processor.plot_forecast_vs_actual()
+        forecast_result_processor.plot_error_over_time()
+        forecast_result_processor.plot_error_distribution()
+        forecast_result_processor.plot_mae_by_hour()
+        forecast_result_processor.analyze_best_params()

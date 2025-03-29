@@ -26,4 +26,4 @@ class ForecastWriter:
             file_name (str): The file_name for the data to write the forecast to 'data/data_files/model_results'.
         """
         path = f'{self.path}/{file_name}'
-        forecast.to_csv(path, index=True)
+        forecast.to_csv(path, index=False)

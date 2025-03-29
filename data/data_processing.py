@@ -36,6 +36,29 @@ def preprocess_data(data: pd.DataFrame):
     return data
 
 
+def explore_data(data:pd.DataFrame, df_name: str = None):
+    """
+    Explore the data.
+
+    Args:
+        data (pd.DataFrame): The data to be explored.
+        df_name (str): The name of the dataframe. Default is None.
+
+    """
+    print("\nData Exploration:")
+    if df_name is not None:
+        print(f"Dataframe Name: {df_name}")
+    print("\nData Shape:")
+    print(data.shape)
+    print("\nData Info:")
+    print(data.info())
+    print("\nData Description:")
+    print(data.describe())
+    print("\nData Head:")
+    print(data.head())
+    print('\n\n Exploration: Finished! \n\n')
+
+
 if __name__ == "main":
     data = load_data()
     data = preprocess_data(data)

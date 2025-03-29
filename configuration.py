@@ -81,9 +81,11 @@ class FileNames:
         Class to store output file names.
 
         Attributes:
-            - data_file (str): The data file.
+            - processed_data (str): The processed data file ready to be used for forecasting.
+            - sample_complete_Ty (str): The sample complete Ty file.
         """
-        data_file = 'data.csv'
+        processed_data = 'processed_data.csv'
+        sample_complete_Ty = 'sample_complete_Ty.csv'
 
     @dataclass
     class ModelResultFiles:
@@ -101,6 +103,32 @@ class FileNames:
         elastic_net_forecast = 'elastic_net_forecast.csv'
         adaptive_elastic_net_forecast = 'adaptive_elastic_net_forecast.csv'
 
+    @dataclass
+    class HZ50Files:
+        """
+        Class to store 50Hertz file names.
+
+        Attributes:
+            - solar (str): The combined solar data file.
+            - wind (str): The combined wind data file.
+        """
+        solar = 'Solar_Combined.csv'
+        wind = 'Windenergie_Combined.csv'
+
+    @dataclass
+    class KaggleFiles:
+        """
+        Class to store Kaggle file names.
+
+        Attributes:
+            - data_file (str): The data file.
+        """
+        energy_data_file = 'energy.csv'
+        weather_data_file = 'weather.csv'
+
+
     input_files = InputFiles()
     output_files = OutputFiles()
     model_result_files = ModelResultFiles()
+    hz50_files = HZ50Files()
+    kaggle_files = KaggleFiles()
