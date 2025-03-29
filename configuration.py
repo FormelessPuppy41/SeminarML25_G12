@@ -115,7 +115,20 @@ class FileNames:
         solar = 'Solar_Combined.csv'
         wind = 'Windenergie_Combined.csv'
 
+    @dataclass
+    class KaggleFiles:
+        """
+        Class to store Kaggle file names.
+
+        Attributes:
+            - data_file (str): The data file.
+        """
+        energy_data_file = 'energy_dataset.csv'
+        weather_data_file = 'weather_features.csv'
+
+
     input_files = InputFiles()
     output_files = OutputFiles()
     model_result_files = ModelResultFiles()
     hz50_files = HZ50Files()
+    kaggle_files = KaggleFiles()
