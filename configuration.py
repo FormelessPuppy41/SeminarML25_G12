@@ -123,8 +123,8 @@ class FileNames:
         Attributes:
             - data_file (str): The data file.
         """
-        energy_data_file = 'energy_dataset.csv'
-        weather_data_file = 'weather_features.csv'
+        energy_data_file = 'energy.csv'
+        weather_data_file = 'weather.csv'
 
 
     input_files = InputFiles()
