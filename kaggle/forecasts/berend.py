@@ -70,11 +70,15 @@ def forecast_next_day_wind_opt_ridge(df: pd.DataFrame):
         future_end = future_start + pd.Timedelta(hours=forecast_horizon - 1)
 
         if lag_start not in df.index or future_end not in df.index:
-            continue
+            #print('lag_start or future_end not in df.index')
+            #continue
+            pass
 
         history = df.loc[lag_start:lag_end]
         if len(history) < rolling_hours:
-            continue
+            #print('Possible date issue at time: ', current_time)
+            #continue
+            pass
 
         X_train = []
         y_train = []
@@ -87,12 +91,16 @@ def forecast_next_day_wind_opt_ridge(df: pd.DataFrame):
             y_end = y_start + pd.Timedelta(hours=forecast_horizon - 1)
 
             if x_start not in df.index or y_end not in df.index:
-                continue
+                #print('x_start or y_end not in df.index')
+                #continue
+                pass
 
             x_window = df.loc[x_start:x_end][features]
             y_window = df.loc[y_start:y_end][target_col]
             if len(y_window) != forecast_horizon:
+                #print('y_window length issue at time: ', t)
                 continue
+                pass
 
             x_features = []
             for feature in features:
@@ -164,7 +172,7 @@ def forecast_next_day_wind_opt_ridge(df: pd.DataFrame):
     mse = mean_squared_error(merged[target_col], merged['predicted_solar_generation'])
     print('Mean Squared Error:', mse)
 
-    merged.to_csv('kaggle/forecasts/resulting_data/solar_forecast_ridge_berend.csv', index=False)
+    merged.to_csv('data/data_files/model_results/solar_forecast_ridge_berend.csv', index=False)
     print('Forecasted values:')
     print(merged)
 
@@ -175,7 +183,11 @@ def forecast_next_day_wind_opt_ridge(df: pd.DataFrame):
 
     return all_forecasts_df
 
-
+# 2018-07-11 23:00:00 -> 2018-08-24 00:00
+# 2018-03-25 23:00:00 -> 2018-05-07 00:00
+# 2017-03-26 23:00:00 -> 2017-05-08 00:00
+# 2016-07-10 23:00:00 -> 2016-08-22 00:00
+# 2016-03-27 23:00:00 -> 2016-05-09 00:00
 
 def forecast_next_day_wind_opt_elnet(df: pd.DataFrame):
     """
@@ -218,11 +230,15 @@ def forecast_next_day_wind_opt_elnet(df: pd.DataFrame):
         future_end = future_start + pd.Timedelta(hours=forecast_horizon - 1)
 
         if lag_start not in df.index or future_end not in df.index:
-            continue
+            #print('lag_start or future_end not in df.index')
+            #continue
+            pass
 
         history = df.loc[lag_start:lag_end]
         if len(history) < rolling_hours:
-            continue
+            #print('possible issue for date: ', current_time)
+            #continue
+            pass
 
         X_train = []
         y_train = []
@@ -235,12 +251,16 @@ def forecast_next_day_wind_opt_elnet(df: pd.DataFrame):
             y_end = y_start + pd.Timedelta(hours=forecast_horizon - 1)
 
             if x_start not in df.index or y_end not in df.index:
-                continue
+                #print('x_start or y_end not in df.index')
+                #continue
+                pass
 
             x_window = df.loc[x_start:x_end][features]
             y_window = df.loc[y_start:y_end][target_col]
             if len(y_window) != forecast_horizon:
+                #print('y_window length issue at time: ', t)
                 continue
+                pass
 
             x_features = []
             for feature in features:
@@ -312,7 +332,7 @@ def forecast_next_day_wind_opt_elnet(df: pd.DataFrame):
     mse = mean_squared_error(merged[target_col], merged['predicted_solar_generation'])
     print('Mean Squared Error:', mse)
 
-    merged.to_csv('kaggle/forecasts/resulting_data/solar_forecast_elnet_berend.csv.csv', index=False)
+    merged.to_csv('data/data_files/model_results/solar_forecast_elnet_berend.csv', index=False)
     print('Forecasted values:')
     print(merged)
 
@@ -542,9 +562,50 @@ def _data_preprocessor(energy_data: pd.DataFrame, weather_data: pd.DataFrame) ->
     weather_data = preprocess_weather_data(weather_data)
     #print('\n\nhead of the preprocessed weather data:', weather_data.head())
 
-    # Merge the energy and weather data on time
-    merged_df = pd.merge(energy_data, weather_data, left_on='time', right_on='dt_iso', how='inner')
+    # Merge the energy and weather data on time 
+    merged_df = pd.merge(energy_data, weather_data, left_on='time', right_on='dt_iso', how='outer')
     merged_df.drop(columns=['dt_iso'], inplace=True)  # Drop the dt_iso column as it's redundant after merging
+
+
+    # Step 1: Load the time_data_fcst CSV
+    time_data_fcst = pd.read_csv('data/data_files/model_results/merged_and_forecastsCVS.csv')
+    #print('timedatefcs', time_data_fcst.shape)
+    #print('mergeddf', merged_df.shape)
+    # Ensure 'time' is in datetime format
+    time_data_fcst['time'] = pd.to_datetime(time_data_fcst['time'])
+    merged_df['time'] = pd.to_datetime(merged_df['time'])
+
+    # Step 2: Extract unique time values
+    all_times = pd.DataFrame({'time': time_data_fcst['time'].dropna().unique()})
+
+    # Step 3: Identify missing times not in merged_df
+    missing_times = all_times[~all_times['time'].isin(merged_df['time'])]
+    #print('Missing times:', missing_times)
+
+    # Step 4: Create a DataFrame with these missing times and NaNs for other columns
+    missing_rows = pd.DataFrame(columns=merged_df.columns)
+    missing_rows['time'] = missing_times['time']
+    # Fill the other columns with NaNs
+    for col in merged_df.columns:
+        if col != 'time':
+            missing_rows[col] = pd.NA
+
+    # Step 5: Append the missing rows to merged_df
+    merged_df = pd.concat([merged_df, missing_rows], ignore_index=True)
+
+    # (Optional) Sort by time for readability
+    merged_df.sort_values(by='time', inplace=True)
+    merged_df.reset_index(drop=True, inplace=True)
+
+
+    # Step 1: Create a mask of rows that contain at least one NaN
+    na_rows = merged_df[merged_df.isna().any(axis=1)]
+
+    # Step 2: Print those rows (before filling)
+    #print("Rows with NaN values before filling:")
+    #print(na_rows)
+
+    merged_df.fillna(0, inplace=True)  # Fill NaN values with 0
     #print('\nShape of the energy data:', energy_data.shape, 'and the shape of the weather data:', weather_data.shape, 'Shape of the merged data:', merged_df.shape)
     #print('\n\nhead of the merged data:', merged_df.head(), '\n', explore_data(merged_df, 'Merged Data'))
 
@@ -564,4 +625,99 @@ if __name__ == "__main__":
     merged_df = _data_preprocessor(energy_df, weather_df)
     
     # Run the forecaster
-    forecaster(merged_df)
+    #forecaster(merged_df)
+
+    ridge_forecast = data_loader.load_model_results(file_names.model_result_files.ridge_forecast_berend)
+    elnet_forecast = data_loader.load_model_results(file_names.model_result_files.elnet_forecast_berend)
+    
+    merged_df['time'] = pd.to_datetime(merged_df['time'])
+    ridge_forecast['forecast_time'] = pd.to_datetime(ridge_forecast['forecast_time'])
+    elnet_forecast['forecast_time'] = pd.to_datetime(elnet_forecast['forecast_time'])
+
+    # list of times not in forecasts ('forecast_time') but present in merged_df ('time')
+    missing_times_ridge = set(merged_df['time']) - set(ridge_forecast['forecast_time'])
+    #print('Missing times in the ridge forecast:', len(missing_times_ridge), 'Merged has: ', len(merged_df), 'Ridge has:', len(ridge_forecast))
+    #print('misssing values are: ', missing_times)
+    
+    #print('\n\n\n\n\n')
+    # list of times not in forecasts ('forecast_time') but present in merged_df ('time')
+    missing_times_elnet = set(merged_df['time']) - set(elnet_forecast['forecast_time'])
+    #print('Missing times in the elastic net forecast:', len(missing_times_elnet), 'Merged has: ', len(merged_df), 'Elastic net has:', len(elnet_forecast))
+    #print('misssing values are: ', missing_times)
+    
+
+    # Ensure forecast_time is the index in original forecasts
+    ridge_forecast.set_index('forecast_time', inplace=True)
+    elnet_forecast.set_index('forecast_time', inplace=True)
+
+    # Convert missing times to proper datetime index
+    missing_times_ridge = pd.DatetimeIndex(sorted(missing_times_ridge), name='forecast_time')
+    missing_times_elnet = pd.DatetimeIndex(sorted(missing_times_elnet), name='forecast_time')
+
+    # Define default values for missing rows
+    default_row = {
+        'predicted_solar_generation': 0.0,
+        'forecast_made_at': pd.NaT,
+        'generation solar': 0.0
+    }
+
+    ridge_missing_df = pd.DataFrame(default_row, index=missing_times_ridge)
+    elnet_missing_df = pd.DataFrame(default_row, index=missing_times_elnet)
+
+    # Concatenate and sort
+    ridge_forecast = pd.concat([ridge_forecast, ridge_missing_df])
+    ridge_forecast = ridge_forecast[~ridge_forecast.index.duplicated(keep='first')]
+    ridge_forecast = ridge_forecast.sort_index()
+
+    elnet_forecast = pd.concat([elnet_forecast, elnet_missing_df])
+    elnet_forecast = elnet_forecast[~elnet_forecast.index.duplicated(keep='first')]
+    elnet_forecast = elnet_forecast.sort_index()
+
+    ambiguous_times = pd.to_datetime([
+        '2015-10-25 02:00',
+        '2016-10-30 02:00',
+        '2017-10-29 02:00',
+        '2018-10-28 02:00'
+    ], format='%Y-%m-%d %H:%M')
+    ridge_forecast.reset_index(drop=False, inplace=True)
+    elnet_forecast.reset_index(drop=False, inplace=True)
+
+    extra_ridge = []
+    extra_elnet = []
+    def duplicate_and_boost(df: pd.DataFrame, ambiguous_times: list) -> pd.DataFrame:
+        for dt in ambiguous_times:
+            # Select original row (first occurrence of 02:00)
+            original_row = df[df['forecast_time'] == dt].copy() if dt in df['forecast_time'].values else None
+            if original_row is None:
+                print(f"Missing original row for {dt}")
+            if original_row is not None and not original_row.empty:
+                print(f'Original row for {dt}: \n', original_row)
+                # Create new row with +10%
+                boosted_row = original_row.copy().reset_index(drop=True)
+
+                # Only apply +10% to numeric columns
+                boosted_row['predicted_solar_generation'] = boosted_row['predicted_solar_generation'] * 1.1
+
+                # Set the forecast_time of the new row (since reset_index dropped it)
+                boosted_row['forecast_time'] = dt
+
+                # Append the boosted row
+                df = pd.concat([df, boosted_row], ignore_index=True)
+                print('new df shape:', df.shape, '\n', boosted_row)
+
+        # Sort by time again
+        df.sort_values(by='forecast_time', inplace=True)
+        return df.reset_index(drop=True)
+
+    ridge_forecast = duplicate_and_boost(ridge_forecast, ambiguous_times)
+    elnet_forecast = duplicate_and_boost(elnet_forecast, ambiguous_times)
+
+
+    # Done!
+    print("Final Ridge Forecast:", ridge_forecast.shape)
+    print("Final Elastic Net Forecast:", elnet_forecast.shape)
+
+
+    ridge_forecast.to_csv('data/data_files/model_results/solar_forecast_ridge_berend_filled.csv', index=False)
+    elnet_forecast.to_csv('data/data_files/model_results/solar_forecast_elnet_berend_filled.csv', index=False)
+
