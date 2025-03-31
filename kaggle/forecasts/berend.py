@@ -1,5 +1,15 @@
 import pandas as pd
 import datetime
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge, Lasso, ElasticNet
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from sklearn.feature_selection import RFE
+from sklearn.preprocessing import StandardScaler
+from collections import defaultdict
+
 
 from data.data_loader import DataLoader
 from data.data_processing import explore_data
@@ -18,17 +28,314 @@ data_loader = DataLoader()
 ##
 
 
-def forecaster(energy_data: pd.DataFrame, weather_data: pd.DataFrame):
+
+def forecast_next_day_wind_opt_ridge(df: pd.DataFrame):
+    """
+    Forecast next-day hourly solar power generation using an optimized walk-forward Ridge regression.
+    Forecast is made every day at 09:00 for the next day (24 hourly values).
+
+    Args:
+        df (pd.DataFrame): Merged dataframe with weather + energy features.
+
+    Returns:
+        pd.DataFrame: DataFrame with forecast timestamps and predictions.
+    """
+    df = df.copy().dropna()
+    df.set_index('time', inplace=True)
+
+    features = ['temp', 'clouds_all', 'weather_severity_score', 'sun_intensity', 'temp_min',
+                'temp_max', 'pressure', 'humidity', 'rain_1h', 'rain_3h', 'snow_3h']
+    target_col = 'generation solar'
+
+    df = df.sort_index()
+    lag_hours = 24 * 14
+    forecast_horizon = 24
+    forecast_offset = 15
+    rolling_hours = 168 * 6
+
+    forecasts = []
+    feature_selection_counter = defaultdict(int)
+    summary_stats = ['mean', 'std', 'min', 'max']
+    expanded_feature_names = [f"{f}_{s}" for f in features for s in summary_stats]
+
+    all_9am_points = df[df.index.hour == 9].index
+    valid_9am_points = [t for t in all_9am_points if t > df.index[lag_hours]]
+
+    print('Starting forecast for {} 09:00 points'.format(len(valid_9am_points)))
+
+    for current_time in valid_9am_points:
+        lag_start = current_time - pd.Timedelta(hours=rolling_hours)
+        lag_end = current_time - pd.Timedelta(hours=1)
+        future_start = current_time + pd.Timedelta(hours=forecast_offset)
+        future_end = future_start + pd.Timedelta(hours=forecast_horizon - 1)
+
+        if lag_start not in df.index or future_end not in df.index:
+            continue
+
+        history = df.loc[lag_start:lag_end]
+        if len(history) < rolling_hours:
+            continue
+
+        X_train = []
+        y_train = []
+
+        past_9ams = [t for t in all_9am_points if lag_start <= t < current_time]
+        for t in past_9ams:
+            x_start = t - pd.Timedelta(hours=lag_hours)
+            x_end = t - pd.Timedelta(hours=1)
+            y_start = t + pd.Timedelta(hours=forecast_offset)
+            y_end = y_start + pd.Timedelta(hours=forecast_horizon - 1)
+
+            if x_start not in df.index or y_end not in df.index:
+                continue
+
+            x_window = df.loc[x_start:x_end][features]
+            y_window = df.loc[y_start:y_end][target_col]
+            if len(y_window) != forecast_horizon:
+                continue
+
+            x_features = []
+            for feature in features:
+                x_features.extend([
+                    x_window[feature].mean(),
+                    x_window[feature].std(),
+                    x_window[feature].min(),
+                    x_window[feature].max(),
+                ])
+            X_train.append(x_features)
+            y_train.append(y_window.values)
+
+        if not X_train:
+            continue
+
+        X_train = np.array(X_train)
+        y_train = np.array(y_train)
+
+        # Scale features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+
+        # Feature selection using RFE
+        base_model = Ridge(alpha=1.0)
+        rfe_model = RFE(base_model, n_features_to_select=1)
+        rfe_model.fit(X_train_scaled, y_train)
+
+        selected_features_mask = rfe_model.support_
+        selected_feature_names = np.array(expanded_feature_names)[selected_features_mask]
+
+        for feat in selected_feature_names:
+            feature_selection_counter[feat] += 1
+
+        X_train_selected = X_train_scaled[:, selected_features_mask]
+
+        model = MultiOutputRegressor(Ridge(alpha=1.0))
+        model.fit(X_train_selected, y_train)
+
+        # Latest input (same feature engineering)
+        latest_window = df.loc[current_time - pd.Timedelta(hours=lag_hours): current_time - pd.Timedelta(hours=1)]
+        x_latest = []
+        for feature in features:
+            x_latest.extend([
+                latest_window[feature].mean(),
+                latest_window[feature].std(),
+                latest_window[feature].min(),
+                latest_window[feature].max(),
+            ])
+
+        x_latest_scaled = scaler.transform([x_latest])
+        x_latest_selected = x_latest_scaled[:, selected_features_mask]
+        prediction = model.predict(x_latest_selected)[0]
+        prediction = np.clip(prediction, 0, None)
+
+        forecast_index = pd.date_range(start=future_start, periods=forecast_horizon, freq='h')
+        forecast_df = pd.DataFrame({
+            'forecast_time': forecast_index,
+            'predicted_solar_generation': prediction,
+            'forecast_made_at': current_time
+        })
+        forecasts.append(forecast_df)
+
+    if forecasts:
+        all_forecasts_df = pd.concat(forecasts).reset_index(drop=True)
+    else:
+        all_forecasts_df = pd.DataFrame(columns=['forecast_time', 'predicted_solar_generation', 'forecast_made_at'])
+
+    merged = all_forecasts_df.merge(df[[target_col]], left_on='forecast_time', right_index=True)
+    mse = mean_squared_error(merged[target_col], merged['predicted_solar_generation'])
+    print('Mean Squared Error:', mse)
+
+    merged.to_csv('kaggle/forecasts/resulting_data/solar_forecast_ridge_berend.csv', index=False)
+    print('Forecasted values:')
+    print(merged)
+
+    print("\nFeature selection frequency across all 09:00 forecasts:")
+    sorted_counts = sorted(feature_selection_counter.items(), key=lambda x: x[1], reverse=True)
+    for feat, count in sorted_counts:
+        print(f"{feat:30} → {count} times selected")
+
+    return all_forecasts_df
+
+
+
+def forecast_next_day_wind_opt_elnet(df: pd.DataFrame):
+    """
+    Forecast next-day hourly solar power generation using an optimized walk-forward Ridge regression.
+    Forecast is made every day at 09:00 for the next day (24 hourly values).
+
+    Args:
+        df (pd.DataFrame): Merged dataframe with weather + energy features.
+
+    Returns:
+        pd.DataFrame: DataFrame with forecast timestamps and predictions.
+    """
+    df = df.copy().dropna()
+    df.set_index('time', inplace=True)
+
+    features = ['temp', 'clouds_all', 'weather_severity_score', 'sun_intensity', 'temp_min',
+                'temp_max', 'pressure', 'humidity', 'rain_1h', 'rain_3h', 'snow_3h']
+    target_col = 'generation solar'
+
+    df = df.sort_index()
+    lag_hours = 24 * 14
+    forecast_horizon = 24
+    forecast_offset = 15
+    rolling_hours = 168 * 6
+
+    forecasts = []
+    feature_selection_counter = defaultdict(int)
+    summary_stats = ['mean', 'std', 'min', 'max']
+    expanded_feature_names = [f"{f}_{s}" for f in features for s in summary_stats]
+
+    all_9am_points = df[df.index.hour == 9].index
+    valid_9am_points = [t for t in all_9am_points if t > df.index[lag_hours]]
+
+    print('Starting forecast for {} 09:00 points'.format(len(valid_9am_points)))
+
+    for current_time in valid_9am_points:
+        lag_start = current_time - pd.Timedelta(hours=rolling_hours)
+        lag_end = current_time - pd.Timedelta(hours=1)
+        future_start = current_time + pd.Timedelta(hours=forecast_offset)
+        future_end = future_start + pd.Timedelta(hours=forecast_horizon - 1)
+
+        if lag_start not in df.index or future_end not in df.index:
+            continue
+
+        history = df.loc[lag_start:lag_end]
+        if len(history) < rolling_hours:
+            continue
+
+        X_train = []
+        y_train = []
+
+        past_9ams = [t for t in all_9am_points if lag_start <= t < current_time]
+        for t in past_9ams:
+            x_start = t - pd.Timedelta(hours=lag_hours)
+            x_end = t - pd.Timedelta(hours=1)
+            y_start = t + pd.Timedelta(hours=forecast_offset)
+            y_end = y_start + pd.Timedelta(hours=forecast_horizon - 1)
+
+            if x_start not in df.index or y_end not in df.index:
+                continue
+
+            x_window = df.loc[x_start:x_end][features]
+            y_window = df.loc[y_start:y_end][target_col]
+            if len(y_window) != forecast_horizon:
+                continue
+
+            x_features = []
+            for feature in features:
+                x_features.extend([
+                    x_window[feature].mean(),
+                    x_window[feature].std(),
+                    x_window[feature].min(),
+                    x_window[feature].max(),
+                ])
+            X_train.append(x_features)
+            y_train.append(y_window.values)
+
+        if not X_train:
+            continue
+
+        X_train = np.array(X_train)
+        y_train = np.array(y_train)
+
+        # Scale features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+
+        # Feature selection using RFE
+        base_model = ElasticNet(alpha=1.0, l1_ratio=0.5)
+        rfe_model = RFE(base_model, n_features_to_select=3)
+        rfe_model.fit(X_train_scaled, y_train)
+
+        selected_features_mask = rfe_model.support_
+        selected_feature_names = np.array(expanded_feature_names)[selected_features_mask]
+
+        for feat in selected_feature_names:
+            feature_selection_counter[feat] += 1
+
+        X_train_selected = X_train_scaled[:, selected_features_mask]
+
+        model = MultiOutputRegressor(ElasticNet(alpha=1.0, l1_ratio=0.5))
+        model.fit(X_train_selected, y_train)
+
+        # Latest input (same feature engineering)
+        latest_window = df.loc[current_time - pd.Timedelta(hours=lag_hours): current_time - pd.Timedelta(hours=1)]
+        x_latest = []
+        for feature in features:
+            x_latest.extend([
+                latest_window[feature].mean(),
+                latest_window[feature].std(),
+                latest_window[feature].min(),
+                latest_window[feature].max(),
+            ])
+
+        x_latest_scaled = scaler.transform([x_latest])
+        x_latest_selected = x_latest_scaled[:, selected_features_mask]
+        prediction = model.predict(x_latest_selected)[0]
+        prediction = np.clip(prediction, 0, None)
+
+        forecast_index = pd.date_range(start=future_start, periods=forecast_horizon, freq='h')
+        forecast_df = pd.DataFrame({
+            'forecast_time': forecast_index,
+            'predicted_solar_generation': prediction,
+            'forecast_made_at': current_time
+        })
+        forecasts.append(forecast_df)
+
+    if forecasts:
+        all_forecasts_df = pd.concat(forecasts).reset_index(drop=True)
+    else:
+        all_forecasts_df = pd.DataFrame(columns=['forecast_time', 'predicted_solar_generation', 'forecast_made_at'])
+
+    merged = all_forecasts_df.merge(df[[target_col]], left_on='forecast_time', right_index=True)
+    mse = mean_squared_error(merged[target_col], merged['predicted_solar_generation'])
+    print('Mean Squared Error:', mse)
+
+    merged.to_csv('kaggle/forecasts/resulting_data/solar_forecast_elnet_berend.csv.csv', index=False)
+    print('Forecasted values:')
+    print(merged)
+
+    print("\nFeature selection frequency across all 09:00 forecasts:")
+    sorted_counts = sorted(feature_selection_counter.items(), key=lambda x: x[1], reverse=True)
+    for feat, count in sorted_counts:
+        print(f"{feat:30} → {count} times selected")
+
+    return all_forecasts_df
+
+
+
+def forecaster(merged_df: pd.DataFrame):
     """
     WRITE THE EXPLANATION HERE FOR YOUR SPECIFIC FORECASTER. 
 
     Args:
-        energy_data (pd.DataFrame): df containing energy data
-        weather_data (pd.DataFrame): df containing weather data
+        merged_df (pd.DataFrame): df containing merged energy and weather data
 
     """
     # Write your forecasting code here
-    raise NotImplementedError("This function is not implemented yet.")
+    forecast_next_day_wind_opt_ridge(merged_df)
+    forecast_next_day_wind_opt_elnet(merged_df)
 
 
 def _data_preprocessor(energy_data: pd.DataFrame, weather_data: pd.DataFrame) -> pd.DataFrame:
@@ -40,11 +347,13 @@ def _data_preprocessor(energy_data: pd.DataFrame, weather_data: pd.DataFrame) ->
         weather_data (pd.DataFrame): df containing weather data
 
     Returns:
-        Tuple[pd.DataFrame, pd.DataFrame]: preprocessed energy and weather data
+        pd.DataFrame: preprocessed data
     """
     def preprocess_energy_data(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Preprocess the energy data.
+        Preprocess the energy data by converting the time column to datetime and selecting relevant columns.
+        This function also removes the timezone information from the 'dt_iso' column.
+        Furthermore, it selects only the relevant columns for the analysis which are: [generation solar, generation wind onshore, forecast solar day ahead, forecast wind onshore day ahead]
 
         Args:
             df (pd.DataFrame): df containing energy data
@@ -52,11 +361,24 @@ def _data_preprocessor(energy_data: pd.DataFrame, weather_data: pd.DataFrame) ->
         Returns:
             pd.DataFrame: preprocessed energy data
         """
+        # Convert 'dt_iso' to datetime
+        df['time'] = df['time'].str.split('+').str[0]  # Remove the timezone information
+        df['time'] = df['time'].apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
+        
+        keep_cols = ['generation solar', 'generation wind onshore', 'forecast solar day ahead', 'forecast wind onshore day ahead']
+        # Select only the relevant columns
+        df = df[['time'] + keep_cols]
+        
         return df
     
     def preprocess_weather_data(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Preprocess the weather data.
+        Preprocess the weather data by converting the time column to datetime and adds relevant columns.
+        This function also removes the timezone information from the 'dt_iso' column.
+        Furthermore, it creates a weather severity score based on the weather condition.
+        The score consists of:
+        - A base severity derived from `weather_main`
+        - A normalized detail component from the last two digits of `weather_id`, uniformly distributed within each `weather_main` group.
 
         Args:
             df (pd.DataFrame): df containing weather data"
@@ -65,7 +387,9 @@ def _data_preprocessor(energy_data: pd.DataFrame, weather_data: pd.DataFrame) ->
             pd.DataFrame: preprocessed weather data
         """
         # Convert 'dt_iso' to datetime
+        df['dt_iso'] = df['dt_iso'].str.split('+').str[0]  # Remove the timezone information
         df['dt_iso'] = df['dt_iso'].apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d %H:%M:%S'))
+        
         # Convert 'weather_id' to int
         
         # Average the numerical weather data by time -> the geographic location (city) is averaged out
@@ -160,16 +484,72 @@ def _data_preprocessor(energy_data: pd.DataFrame, weather_data: pd.DataFrame) ->
         weather_data = add_weather_severity_feature(avg_weather_by_time_with_weather_main)
         #print('head of the weather data with weather severity:', weather_data.head(), '\n Unique severity codes are: ',weather_data['weather_severity_score'].unique())
 
-    #TODO: the time column is not in datetime format, but in string format with +01:00:00 at the end. Fix this.
+        def sun_intensity(hour: int, date: datetime, min_daylight: float = 8.0, max_daylight: float = 16.0,
+                        min_strength: float = 0.4, max_strength: float = 1.0, peak_hour: int = 13) -> float:
+            """
+            Estimate seasonally-adjusted sun intensity based on hour and date.
+
+            Args:
+                hour (int): Hour of the day (0–23).
+                date (datetime): Date of the year.
+                min_daylight (float): Minimum daylight duration (e.g. winter).
+                max_daylight (float): Maximum daylight duration (e.g. summer).
+                min_strength (float): Relative sun strength in winter.
+                max_strength (float): Relative sun strength in summer.
+                peak_hour (int): Hour of peak intensity (solar noon).
+
+            Returns:
+                float: Adjusted sun intensity (0–1)
+            """
+            day_of_year = date.timetuple().tm_yday
+
+            # DAYLIGHT DURATION (cosine seasonal variation)
+            daylight_range = max_daylight - min_daylight
+            daylight_hours = min_daylight + (daylight_range / 2) * (1 + np.cos(2 * np.pi * (day_of_year - 172) / 365))
+
+            # SEASONAL STRENGTH FACTOR (more intense sun in summer)
+            strength_range = max_strength - min_strength
+            strength = min_strength + (strength_range / 2) * (1 + np.cos(2 * np.pi * (day_of_year - 172) / 365))
+
+            # Sunrise & sunset centered around solar noon
+            half_daylight = daylight_hours / 2
+            sunrise = peak_hour - half_daylight
+            sunset = peak_hour + half_daylight
+
+            if hour < sunrise or hour > sunset:
+                return 0.0
+
+            # Sun follows sine curve during daylight hours
+            angle = np.pi * (hour - sunrise) / daylight_hours
+            intensity = np.sin(angle) * strength
+
+            return round(float(intensity), 4)
+        # Add the sun intensity feature
+        weather_data['hour'] = weather_data['dt_iso'].dt.hour
+        weather_data['sun_intensity'] = weather_data.apply(lambda row: sun_intensity(row['hour'], row['dt_iso']), axis=1)
+        # Drop the 'hour' column as it's no longer needed
+        weather_data.drop(columns=['hour'], inplace=True)
+
+        # Drop unnecessary columns
+        weather_data.drop(columns=['weather_id', 'weather_main'], inplace=True)
+
+        return weather_data
+
     # Preprocess the energy data
     energy_data = preprocess_energy_data(energy_data)
-    print('head of the preprocessed energy data:', energy_data.head())
+    #print('\n\nhead of the preprocessed energy data:', energy_data.head())
     # Preprocess the weather data
     weather_data = preprocess_weather_data(weather_data)
-    print('head of the preprocessed weather data:', weather_data.head())
+    #print('\n\nhead of the preprocessed weather data:', weather_data.head())
 
-    return energy_data, weather_data
-    
+    # Merge the energy and weather data on time
+    merged_df = pd.merge(energy_data, weather_data, left_on='time', right_on='dt_iso', how='inner')
+    merged_df.drop(columns=['dt_iso'], inplace=True)  # Drop the dt_iso column as it's redundant after merging
+    #print('\nShape of the energy data:', energy_data.shape, 'and the shape of the weather data:', weather_data.shape, 'Shape of the merged data:', merged_df.shape)
+    #print('\n\nhead of the merged data:', merged_df.head(), '\n', explore_data(merged_df, 'Merged Data'))
+
+    return merged_df
+
 
 if __name__ == "__main__":
     energy_df = data_loader.load_kaggle_data(file_names.kaggle_files.energy_data_file)
@@ -181,7 +561,7 @@ if __name__ == "__main__":
     #explore_data(weather_df, "Weather Data")
 
     # Preprocess the data
-    energy_df, weather_df = _data_preprocessor(energy_df, weather_df)
+    merged_df = _data_preprocessor(energy_df, weather_df)
     
     # Run the forecaster
-    forecaster(energy_df, weather_df)
+    forecaster(merged_df)
