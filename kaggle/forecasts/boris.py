@@ -4,9 +4,7 @@ from sklearn.metrics import mean_squared_error
 import numpy as np
 import time
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
+
 
 
 from data.data_loader import DataLoader
