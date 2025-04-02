@@ -326,7 +326,7 @@ def build_nn_model(model_type, input_shape):
         model = Sequential([
             tf.keras.Input(shape=input_shape),
             Conv1D(filters=48, kernel_size=ks, strides=1, padding='causal', activation='relu'),
-            Flatten(),
+            tf.keras.layers.GlobalAveragePooling1D(),
             Dense(48, activation='relu'),
             Dense(24)
         ])
