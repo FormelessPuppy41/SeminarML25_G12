@@ -42,6 +42,14 @@ class ModelParameters:
         'verbose': 1
     }
 
+    xgboost_params = {
+        'n_estimators': 100,
+        'max_depth': 3,
+        'learning_rate': 0.1,
+        'random_state': 42,
+        'objective': 'reg:squarederror'
+    }
+
 @dataclass
 class ModelSettings:
     """
@@ -102,6 +110,7 @@ class FileNames:
         lasso_forecast = 'lasso_forecast.csv'
         elastic_net_forecast = 'elastic_net_forecast.csv'
         adaptive_elastic_net_forecast = 'adaptive_elastic_net_forecast.csv'
+        xgboost_forecast = 'xgboost_forecast.csv'
 
     @dataclass
     class HZ50Files:

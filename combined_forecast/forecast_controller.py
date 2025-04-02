@@ -121,7 +121,17 @@ class ForecastController:
             )
         self._forecast_writer.write_forecast(forecast=adaptive_elastic_net_result, file_name=self._file_names.adaptive_elastic_net_forecast)
 
-    
+    def forecast_xgboost(self):
+        """
+        Run the XGBoost regression model and write the forecast to a CSV file
+        """
+        xgboost_params = self._model_parameters.xgboost_params
+        xgboost_result, _ = self._time_forecaster(
+                lambda: self._forecast_runner.run_xgboost(input_params=xgboost_params),
+                forecast_name='XGBoost'
+            )
+        self._forecast_writer.write_forecast(forecast=xgboost_result, file_name=self._file_names.xgboost_forecast)
+
     def _time_forecaster(self, forecast_func: Callable, forecast_name: str) -> pd.DataFrame:
         """
         Time the execution of a forecast method.

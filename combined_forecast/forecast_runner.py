@@ -4,7 +4,7 @@ Forecast combiner module
 # imports:
 import pandas as pd
 from typing import List, Dict, Any
-from combined_forecast.methods import run_day_ahead_adaptive_elastic_net, run_day_ahead_lasso, run_day_ahead_ridge, run_day_ahead_elastic_net
+from combined_forecast.methods import run_day_ahead_adaptive_elastic_net, run_day_ahead_lasso, run_day_ahead_ridge, run_day_ahead_elastic_net, run_day_ahead_xgboost
 
 class ForecastRunner:
     """
@@ -159,4 +159,38 @@ class ForecastRunner:
             datetime_col=self._datetime_col,
             freq=self._freq,
             param_grid=params
+        )
+    
+    def run_xgboost(self, input_params: Dict[str, Any]):
+        """
+        This function runs the xgboost regression model.
+
+        Args:
+            input_params (Dict[str, Any]): The parameters for the model.
+                - n_estimators: number of trees (default 100)
+                - max_depth: maximum depth of trees (default 3)
+                - learning_rate: learning rate (default 0.1)
+                - random_state: random state (default 42)
+                - objective: objective function (default 'reg:squarederror')
+
+        Returns:
+            pd.DataFrame: The testing data with the predictions.
+        """
+        params = {}
+        params['n_estimators'] = input_params.get('n_estimators', 100)
+        params['max_depth'] = input_params.get('max_depth', 3)
+        params['learning_rate'] = input_params.get('learning_rate', 0.1)
+        params['random_state'] = input_params.get('random_state', 42)
+        params['objective'] = input_params.get('objective', 'reg:squarederror')
+
+        return run_day_ahead_xgboost(
+            df=self._df,
+            flag_matrix_df=self._flag_matrix_df,
+            target_column=self._target,
+            feature_columns=self._features,
+            forecast_horizon=self._forecast_horizon,
+            rolling_window_days=self._rolling_window_days,
+            xgb_params=params,
+            datetime_col=self._datetime_col,
+            freq=self._freq
         )

@@ -33,7 +33,7 @@ def run_models():
             freq=model_settings.freq
         )
     
-    forecast_controller.forecast_ridge()
+    forecast_controller.forecast_xgboost()
 
 
 def run_results(file_name: str):
