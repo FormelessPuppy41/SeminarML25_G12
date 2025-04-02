@@ -302,8 +302,7 @@ def build_nn_model(model_type, input_shape):
     if model_type == "lstm":
         model = Sequential([
             tf.keras.Input(shape=input_shape),
-            LSTM(100, return_sequences=True),
-            Flatten(),
+            LSTM(100),
             Dense(200, activation='relu'),
             Dropout(0.1),
             Dense(24)
@@ -314,8 +313,7 @@ def build_nn_model(model_type, input_shape):
         model = Sequential([
             tf.keras.Input(shape=input_shape),
             LSTM(250, return_sequences=True),
-            LSTM(150, return_sequences=True),
-            Flatten(),
+            LSTM(150),
             Dense(150, activation='relu'),
             Dropout(0.1),
             Dense(24)
@@ -339,8 +337,7 @@ def build_nn_model(model_type, input_shape):
         model = Sequential([
             tf.keras.Input(shape=input_shape),
             Conv1D(filters=100, kernel_size=ks, strides=1, padding='causal', activation='relu'),
-            LSTM(100, return_sequences=True),
-            Flatten(),
+            LSTM(100),
             Dense(50, activation='relu'),
             Dense(24)
         ])
@@ -353,7 +350,7 @@ def build_nn_model(model_type, input_shape):
             TimeDistributed(Dense(150, activation='relu')),
             TimeDistributed(Dense(100, activation='relu')),
             TimeDistributed(Dense(50, activation='relu')),
-            Flatten(),
+            LSTM(64),
             Dense(150, activation='relu'),
             Dropout(0.1),
             Dense(24)
@@ -365,12 +362,10 @@ def build_nn_model(model_type, input_shape):
         model = Sequential([
             tf.keras.Input(shape=input_shape),
             LSTM(50, activation='relu'),
-            RepeatVector(input_shape[0]),
+            RepeatVector(24),
             LSTM(50, activation='relu', return_sequences=True),
-            TimeDistributed(Dense(50, activation='relu')),
-            Flatten(),
-            Dense(25, activation='relu'),
-            Dense(24)
+            TimeDistributed(Dense(1)),
+            tf.keras.layers.Reshape((24,))
         ])
         optimizer = Adam(learning_rate=1e-3, amsgrad=True)
         
