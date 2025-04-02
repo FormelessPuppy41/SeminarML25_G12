@@ -523,9 +523,8 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
     """
     # === Step 1: Preprocess energy data (similar to your original code) ===
     df = energy_data.copy()
-    df['time'] = pd.to_datetime(df['time'], utc=True)
+    df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
     df = df.set_index('time')
-    df.index = df.index.tz_convert(None)
     
     # Target variables (example: forecasting generation solar)
     df['generation wind'] = df['generation wind onshore']  # optional
@@ -547,7 +546,7 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
         df[f'wind_lag_{lag}'] = df['generation wind'].shift(lag)
     
     # === Step 2: Process weather data and merge ===
-    weather_data['dt_iso'] = pd.to_datetime(weather_data['dt_iso'], utc=True)
+    weather_data['dt_iso'] = pd.to_datetime(weather_data['dt_iso']).dt.tz_localize(None)
     weather_data = weather_data.set_index('dt_iso')
 
     # Keep only numeric and useful weather features
@@ -596,7 +595,7 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
     
     # === Step 4: Set up expanding window forecasting ===
     # Define forecast days (starting after an initial window, e.g., 165 days, as in your code)
-    start_date = X.index.min().normalize() + pd.Timedelta(days=10)
+    start_date = X.index.min().normalize() + pd.Timedelta(days=1445)
     end_date = X.index.max().normalize()
     forecast_days = pd.date_range(start=start_date, end=end_date, freq='D')
     
@@ -719,8 +718,8 @@ if __name__ == "__main__":
     # Run the NN forecaster
     #expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
 
-    #nn_model_type = "cnn" 
-    #expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
-
-    nn_model_type = "encoder_decoder" 
+    nn_model_type = "cnn" 
     expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
+
+    #nn_model_type = "encoder_decoder" 
+    #expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
