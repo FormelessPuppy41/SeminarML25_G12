@@ -55,12 +55,12 @@ class ModelSettings:
         - datetime_col (str): The datetime column.
         - freq (str): The frequency of the data.
     """
-    target = 'HR'
-    features = ["A1", "A2", "A3", "A4", "A5", "A6", "A7"]
-    forecast_horizon = 96
+    target = 'generation solar'
+    features = ["A1", "A2", "A3", "A4", "A5"]
+    forecast_horizon = 24
     rolling_window_days = 165
-    datetime_col = 'Zeit'
-    freq = '15min'
+    datetime_col = 'datetime'
+    freq = '1H'
 
 
 @dataclass
@@ -125,6 +125,8 @@ class FileNames:
         """
         energy_data_file = 'energy.csv'
         weather_data_file = 'weather.csv'
+        flag_matrix_file = 'flag_matrix.csv'
+        combined_forecasts_file = 'combined_forecasts.csv'
 
 
     input_files = InputFiles()

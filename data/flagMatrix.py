@@ -325,7 +325,7 @@ def process_full_dataset(df, rolling_window_days, resolution, max_install,
 
 if __name__ == "__main__":
     # Load your CSV file
-    df = pd.read_csv("/Users/borisrine/Library/CloudStorage/OneDrive-ErasmusUniversityRotterdam/Documents/Uni/bsc2/Year 4/Seminar/Data simuleren/combined_forecasts.csv")
+    df = pd.read_csv("/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/kaggle_data/combined_forecasts.csv")
 
     # Convert datetime using ISO format (since your CSV uses "2015-01-13 00:00:00")
     df['datetime'] = pd.to_datetime(df['datetime'], format="%Y-%m-%d %H:%M:%S")
@@ -358,6 +358,6 @@ if __name__ == "__main__":
     print(flag_matrix)
     
     # Save the resulting flag matrix to a CSV file
-    output_file = "/Users/borisrine/Library/CloudStorage/OneDrive-ErasmusUniversityRotterdam/Documents/Uni/bsc2/Year 4/Seminar/Data simuleren/flag_matrix.csv"
+    output_file = "/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/kaggle_data/flag_matrix.csv"
     flag_matrix.to_csv(output_file, index=False)
     print(f"Flag matrix saved to {output_file}")
