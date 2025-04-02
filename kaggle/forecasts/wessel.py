@@ -556,7 +556,8 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
 
     # Resample to hourly and rename
     weather_agg = weather_numeric.resample('h').mean()
-    weather_agg.index = weather_agg.index.tz_convert(None)
+    if weather_agg.index.tz is not None:
+        weather_agg.index = weather_agg.index.tz_convert(None)
     weather_agg.columns = [f'weather_{col}' for col in weather_agg.columns]
 
     # Merge with energy data
