@@ -523,7 +523,7 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
     """
     # === Step 1: Preprocess energy data (similar to your original code) ===
     df = energy_data.copy()
-    df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
+    df['time'] = pd.to_datetime(df['time'], utc=True).dt.tz_localize(None)
     df = df.set_index('time')
     
     # Target variables (example: forecasting generation solar)
@@ -546,7 +546,7 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
         df[f'wind_lag_{lag}'] = df['generation wind'].shift(lag)
     
     # === Step 2: Process weather data and merge ===
-    weather_data['dt_iso'] = pd.to_datetime(weather_data['dt_iso']).dt.tz_localize(None)
+    weather_data['dt_iso'] = pd.to_datetime(weather_data['dt_iso'], utc=True).dt.tz_localize(None)
     weather_data = weather_data.set_index('dt_iso')
 
     # Keep only numeric and useful weather features
