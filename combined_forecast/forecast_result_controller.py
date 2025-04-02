@@ -18,6 +18,16 @@ class ForecastResultController:
     def __init__(self):
         pass
 
+    def compute_metrics(self, file_name: str = file_names.model_result_files.ridge_forecast):
+        """
+        This method is used to compute the metrics for the forecast results.
+        """
+        result_df = DataLoader().load_model_results(file_name)
+        ic(result_df.head())
+
+        forecast_result_processor = ForecastResultProcessor(result_df)
+        ic(forecast_result_processor.compute_metrics())
+
     def visualise_ridge(self):
         """
         This method is used to visualise the results of the ridge forecast.
@@ -25,8 +35,6 @@ class ForecastResultController:
         result_df = DataLoader().load_model_results(file_names.model_result_files.ridge_forecast)
         ic(result_df.head())
         forecast_result_processor = ForecastResultProcessor(result_df)
-
-        ic(forecast_result_processor.compute_metrics())
 
         forecast_result_processor.plot_forecast_vs_actual()
         forecast_result_processor.plot_error_over_time()
@@ -41,8 +49,6 @@ class ForecastResultController:
         ic(result_df.head())
         forecast_result_processor = ForecastResultProcessor(result_df)
 
-        ic(forecast_result_processor.compute_metrics())
-
         forecast_result_processor.plot_forecast_vs_actual()
         forecast_result_processor.plot_error_over_time()
         forecast_result_processor.plot_error_distribution()
@@ -56,8 +62,6 @@ class ForecastResultController:
         ic(result_df.head())
         forecast_result_processor = ForecastResultProcessor(result_df)
 
-        ic(forecast_result_processor.compute_metrics())
-
         forecast_result_processor.plot_forecast_vs_actual()
         forecast_result_processor.plot_error_over_time()
         forecast_result_processor.plot_error_distribution()
@@ -70,8 +74,6 @@ class ForecastResultController:
         result_df = DataLoader().load_model_results(file_names.model_result_files.adaptive_elastic_net_forecast)
         ic(result_df.head())
         forecast_result_processor = ForecastResultProcessor(result_df)
-
-        ic(forecast_result_processor.compute_metrics())
 
         forecast_result_processor.plot_forecast_vs_actual()
         forecast_result_processor.plot_error_over_time()

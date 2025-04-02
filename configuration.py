@@ -42,6 +42,14 @@ class ModelParameters:
         'verbose': 1
     }
 
+    xgboost_params = {
+        'n_estimators': 100,
+        'max_depth': 3,
+        'learning_rate': 0.1,
+        'random_state': 42,
+        'objective': 'reg:squarederror'
+    }
+
 @dataclass
 class ModelSettings:
     """
@@ -55,12 +63,12 @@ class ModelSettings:
         - datetime_col (str): The datetime column.
         - freq (str): The frequency of the data.
     """
-    target = 'HR'
-    features = ["A1", "A2", "A3", "A4", "A5", "A6", "A7"]
-    forecast_horizon = 96
+    target = 'generation solar'
+    features = ["A1", "A2", "A3", "A4", "A5"]
+    forecast_horizon = 24
     rolling_window_days = 165
-    datetime_col = 'Zeit'
-    freq = '15min'
+    datetime_col = 'datetime'
+    freq = '1H'
 
 
 @dataclass
@@ -102,6 +110,7 @@ class FileNames:
         lasso_forecast = 'lasso_forecast.csv'
         elastic_net_forecast = 'elastic_net_forecast.csv'
         adaptive_elastic_net_forecast = 'adaptive_elastic_net_forecast.csv'
+        xgboost_forecast = 'xgboost_forecast.csv'
 
     @dataclass
     class HZ50Files:
@@ -125,6 +134,8 @@ class FileNames:
         """
         energy_data_file = 'energy.csv'
         weather_data_file = 'weather.csv'
+        flag_matrix_file = 'flag_matrix.csv'
+        combined_forecasts_file = 'combined_forecasts.csv'
 
 
     input_files = InputFiles()

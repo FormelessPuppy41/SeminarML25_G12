@@ -77,7 +77,7 @@ class DataLoader:
             pd.DataFrame: The Kaggle data.
         """
         # check if the file name is valid
-        if file_name not in [file_names.kaggle_files.energy_data_file, file_names.kaggle_files.weather_data_file]:
+        if file_name not in [file_names.kaggle_files.energy_data_file, file_names.kaggle_files.weather_data_file, file_names.kaggle_files.combined_forecasts_file, file_names.kaggle_files.flag_matrix_file]:
             raise ValueError(f'File name not valid. Use either {file_names.kaggle_files.energy_data_file} or {file_names.kaggle_files.weather_data_file}')
        
         path = f'{self.path}/kaggle_data/{file_name}'

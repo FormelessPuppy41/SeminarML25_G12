@@ -16,6 +16,7 @@ class ForecastController:
 
     Input:
         - df: pandas DataFrame
+        - flag_matrix_df: pandas DataFrame with the flag matrix
         - target: target column name
         - features: list of feature column names
         - forecast_horizon: forecast horizon
@@ -33,6 +34,7 @@ class ForecastController:
     def __init__(
             self, 
             df: pd.DataFrame, 
+            flag_matrix_df: pd.DataFrame,
             target: str, 
             features: List[str],
             forecast_horizon: int = 96,
@@ -42,6 +44,7 @@ class ForecastController:
         ):
         # Initialize input parameters
         self._df = df
+        self._flag_matrix_df = flag_matrix_df
         self._target = target
         self._features = features
         self._forecast_horizon = forecast_horizon
@@ -55,6 +58,7 @@ class ForecastController:
         # Initialize forecast runner
         self._forecast_runner = ForecastRunner(
             df=self._df,
+            flag_matrix_df=self._flag_matrix_df,
             target=self._target,
             features=self._features,
             forecast_horizon=self._forecast_horizon,
@@ -117,7 +121,17 @@ class ForecastController:
             )
         self._forecast_writer.write_forecast(forecast=adaptive_elastic_net_result, file_name=self._file_names.adaptive_elastic_net_forecast)
 
-    
+    def forecast_xgboost(self):
+        """
+        Run the XGBoost regression model and write the forecast to a CSV file
+        """
+        xgboost_params = self._model_parameters.xgboost_params
+        xgboost_result, _ = self._time_forecaster(
+                lambda: self._forecast_runner.run_xgboost(input_params=xgboost_params),
+                forecast_name='XGBoost'
+            )
+        self._forecast_writer.write_forecast(forecast=xgboost_result, file_name=self._file_names.xgboost_forecast)
+
     def _time_forecaster(self, forecast_func: Callable, forecast_name: str) -> pd.DataFrame:
         """
         Time the execution of a forecast method.

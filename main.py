@@ -18,10 +18,13 @@ file_names = FileNames()
 def run_models():
     model_settings = ModelSettings()
 
-    df = DataLoader().load_output_data(file_names.output_files.sample_complete_Ty)
+    flag_matrix_df = DataLoader().load_kaggle_data(file_names.kaggle_files.flag_matrix_file)
+    flag_matrix_df.rename(columns={'date': 'datetime'}, inplace=True)
+    df = DataLoader().load_kaggle_data(file_names.kaggle_files.combined_forecasts_file)
 
     forecast_controller = ForecastController(
             df=df, 
+            flag_matrix_df=flag_matrix_df,
             target=model_settings.target, 
             features=model_settings.features,
             forecast_horizon=model_settings.forecast_horizon,
@@ -30,13 +33,14 @@ def run_models():
             freq=model_settings.freq
         )
     
-    forecast_controller.forecast_elastic_net()
+    forecast_controller.forecast_xgboost()
 
 
-def run_results():
+def run_results(file_name: str):
     forecast_result_processor = ForecastResultController()
-    forecast_result_processor.visualise_elastic_net()
+    forecast_result_processor.compute_metrics(file_name)
 
 if __name__ == "__main__":
-    run_results()
+    run_models()
+    run_results(file_names.model_result_files.ridge_forecast)
 

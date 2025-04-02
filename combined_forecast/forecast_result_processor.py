@@ -33,7 +33,7 @@ class ForecastResultProcessor:
         Compute RMSE, MAE, and R^2 for the forecast.
 
         Returns:
-            Dict[str, float]: dictionary of metrics. Contains keys 'RMSE', 'MAE', 'R2'
+            Dict[str, float]: dictionary of metrics. Contains keys 'RMSE', 'MSE', 'MAE', 'R2'
         """
         if self.df is None:
             raise ValueError("No data set. Use set_data() first.")
@@ -43,6 +43,7 @@ class ForecastResultProcessor:
 
         return {
             'RMSE': np.sqrt(mean_squared_error(y_true, y_pred)),
+            'MSE': mean_squared_error(y_true, y_pred),
             'MAE': mean_absolute_error(y_true, y_pred),
             'R2': r2_score(y_true, y_pred)
         }
