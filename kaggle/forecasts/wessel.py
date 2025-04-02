@@ -498,6 +498,11 @@ def forecast_for_day_nn(forecast_day, X, y, model_type, epochs=50, batch_size=32
     
     # Forecast on the test sample (one forward pass for 24 outputs)
     y_test_pred = model.predict(X_test_nn)
+
+    if y_test_pred.shape[1] != y_test_nn.shape[1]:
+        print(f"⚠️ Skipping {forecast_day.date()} due to mismatched forecast length: {y_test_pred.shape[1]} vs {y_test_nn.shape[1]}")
+        return None
+
     test_mse = mean_squared_error(y_test_nn, y_test_pred)
     
     # Timestamps for the forecast day (24 hourly timestamps)
@@ -523,8 +528,10 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
     """
     # === Step 1: Preprocess energy data (similar to your original code) ===
     df = energy_data.copy()
-    df['time'] = pd.to_datetime(df['time'], utc=True).dt.tz_localize(None)
+    df['time'] = pd.to_datetime(df['time'], utc=True)
     df = df.set_index('time')
+    df.index = df.index.tz_convert(None)
+
     
     # Target variables (example: forecasting generation solar)
     df['generation wind'] = df['generation wind onshore']  # optional
@@ -546,8 +553,10 @@ def expanding_window_forecaster_nn(energy_data: pd.DataFrame, weather_data: pd.D
         df[f'wind_lag_{lag}'] = df['generation wind'].shift(lag)
     
     # === Step 2: Process weather data and merge ===
-    weather_data['dt_iso'] = pd.to_datetime(weather_data['dt_iso'], utc=True).dt.tz_localize(None)
+    weather_data['dt_iso'] = pd.to_datetime(weather_data['dt_iso'], utc=True)
     weather_data = weather_data.set_index('dt_iso')
+    weather_agg.index = weather_agg.index.tz_convert(None)
+
 
     # Keep only numeric and useful weather features
     keep_weather_features = ['temp', 'pressure', 'humidity', 'wind_speed',
