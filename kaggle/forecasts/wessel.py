@@ -222,7 +222,7 @@ def expanding_window_forecaster(energy_data: pd.DataFrame, weather_data: pd.Data
         row['total mse'] = overall_test_mse
 
     output_df = pd.DataFrame(all_rows)
-    output_df.to_csv("day_ahead_forecast_results.csv", index=False)
+    output_df.to_csv(f"{model_name}_day_ahead_forecast_results.csv", index=False)
     print("✅ Forecast results exported to 'day_ahead_forecast_results.csv'")
 
     # === Step 6: Plot the evolution of MSE ===
@@ -235,11 +235,8 @@ def expanding_window_forecaster(energy_data: pd.DataFrame, weather_data: pd.Data
     plt.legend()
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.show()
+    plt.show()    
 
-    output_df = pd.DataFrame(all_rows)
-    output_df.to_csv(f"{model_name}_day_ahead_forecast_results.csv", index=False)
-    print("✅ Forecast results exported to 'day_ahead_forecast_results.csv'")
 
 
 def forecast_for_day(forecast_day, X, y, model_name, model_params):
@@ -277,23 +274,19 @@ def forecast_for_day(forecast_day, X, y, model_name, model_params):
     return (forecast_day, train_mse, test_mse, y_test.tolist(), y_test_pred.tolist(), timestamps)
 
 
-def create_sliding_windows(X_df, y_df, window_size=24):
+def create_multistep_sequences(X_df, y_df, window_size=24, horizon=24):
     """
-    Converts X and y into sliding window sequences suitable for LSTM input.
-    Args:
-        X_df (pd.DataFrame): feature data
-        y_df (pd.Series): target values
-        window_size (int): how many time steps to include in each input sequence
-
-    Returns:
-        X_seq: np.ndarray of shape (samples, window_size, num_features)
-        y_seq: np.ndarray of shape (samples,)
+    X_df: input features
+    y_df: target variable (e.g., solar gen)
+    window_size: number of timesteps used for input
+    horizon: number of timesteps to predict
     """
     X_seq, y_seq = [], []
-    for i in range(window_size, len(X_df)):
+    for i in range(window_size, len(X_df) - horizon + 1):
         X_seq.append(X_df.iloc[i - window_size:i].values)
-        y_seq.append(y_df.iloc[i])
+        y_seq.append(y_df.iloc[i:i + horizon].values)
     return np.array(X_seq), np.array(y_seq)
+
 
 
 
@@ -313,7 +306,7 @@ def build_nn_model(model_type, input_shape):
             Flatten(),
             Dense(200, activation='relu'),
             Dropout(0.1),
-            Dense(1)
+            Dense(24)
         ])
         optimizer = Adam(learning_rate=6e-3, amsgrad=True)
         
@@ -325,7 +318,7 @@ def build_nn_model(model_type, input_shape):
             Flatten(),
             Dense(150, activation='relu'),
             Dropout(0.1),
-            Dense(1)
+            Dense(24)
         ])
         optimizer = Adam(learning_rate=3e-3, amsgrad=True)
         
@@ -337,7 +330,7 @@ def build_nn_model(model_type, input_shape):
             Conv1D(filters=48, kernel_size=ks, strides=1, padding='causal', activation='relu'),
             Flatten(),
             Dense(48, activation='relu'),
-            Dense(1)
+            Dense(24)
         ])
         optimizer = Adam(learning_rate=6e-3, amsgrad=True)
         
@@ -349,7 +342,7 @@ def build_nn_model(model_type, input_shape):
             LSTM(100, return_sequences=True),
             Flatten(),
             Dense(50, activation='relu'),
-            Dense(1)
+            Dense(24)
         ])
         optimizer = Adam(learning_rate=4e-3, amsgrad=True)
         
@@ -363,7 +356,7 @@ def build_nn_model(model_type, input_shape):
             Flatten(),
             Dense(150, activation='relu'),
             Dropout(0.1),
-            Dense(1)
+            Dense(24)
         ])
         optimizer = Adam(learning_rate=2e-3, amsgrad=True)
         
@@ -377,7 +370,7 @@ def build_nn_model(model_type, input_shape):
             TimeDistributed(Dense(50, activation='relu')),
             Flatten(),
             Dense(25, activation='relu'),
-            Dense(1)
+            Dense(24)
         ])
         optimizer = Adam(learning_rate=1e-3, amsgrad=True)
         
@@ -393,73 +386,130 @@ def build_nn_model(model_type, input_shape):
     return model
 
 
-# ========= Forecasting function for one day using NN =========
-def forecast_for_day_nn(forecast_day, X, y, model_type, epochs=50, batch_size=32, window_size=24):
-    """
-    For a given forecast day, trains the specified NN model on all data before forecast_day 
-    and predicts the next 24 hours.
+# # ========= Forecasting function for one day using NN =========
+# def forecast_for_day_nn(forecast_day, X, y, model_type, epochs=50, batch_size=32, window_size=24, horizon=24):
+#     """
+#     For a given forecast day, trains the specified NN model on all data before forecast_day 
+#     and predicts the next 24 hours.
     
-    For simplicity, we use the existing engineered features (including lags) and simply add 
-    a dummy time dimension so that the NN input shape becomes (1, num_features).
+#     For simplicity, we use the existing engineered features (including lags) and simply add 
+#     a dummy time dimension so that the NN input shape becomes (1, num_features).
     
-    Returns:
-      (forecast_day, train_mse, test_mse, day_y, day_pred, timestamps)
-    """
-    # Split training and test data as before
+#     Returns:
+#       (forecast_day, train_mse, test_mse, day_y, day_pred, timestamps)
+#     """
+#     # Split training and test data as before
+#     train_mask = X.index < forecast_day
+#     X_train = X[train_mask]
+#     y_train_nn = y[train_mask]
+    
+#     test_mask = (X.index >= forecast_day) & (X.index < forecast_day + pd.Timedelta(days=1))
+#     X_test = X[test_mask]
+#     y_test_nn = y[test_mask]
+    
+#     if X_train.empty or X_test.empty or len(X_test) < window_size:
+#         return None
+
+#     # Reshape the data: add a time-dimension of 1.
+#     # (This is a simple trick to allow reuse of the NN architectures.
+#     # Note: for CNNs a sequence length of 1 is not ideal so we adjust kernel_size in build_nn_model.)
+#     #X_train_nn = np.expand_dims(X_train.values, axis=1)  # shape: (n_train, 1, num_features)
+#     #X_test_nn = np.expand_dims(X_test.values, axis=1)    # shape: (n_test, 1, num_features)
+
+
+#     X_train_nn, y_train_nn = create_sliding_windows(X_train, y_train_nn, window_size)
+#     X_test_nn, y_test_nn = create_sliding_windows(X_test, y_test_nn, window_size)
+    
+#     # Define input shape for NN model (timesteps, features)
+#     input_shape = (X_train_nn.shape[1], X_train_nn.shape[2])
+    
+#     # Build model
+#     model = build_nn_model(model_type, input_shape)
+    
+#     # Set up callbacks (using early stopping; we mimic model checkpointing by saving a temporary file)
+#     checkpoint_path = f"{model_type}_temp_{forecast_day.strftime('%Y%m%d')}.keras"
+#     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+#     model_checkpoint = ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=True)
+    
+#     # For validation, you could use a split of the training set
+#     history = model.fit(X_train_nn, y_train_nn, epochs=epochs, batch_size=batch_size,
+#                         validation_split=0.1, callbacks=[early_stopping, model_checkpoint],
+#                         verbose=0)
+    
+#     # Optionally load the best model from checkpoint (if you want to strictly follow the snippet)
+#     if os.path.exists(checkpoint_path):
+#         model = tf.keras.models.load_model(checkpoint_path)
+#         os.remove(checkpoint_path)  # clean up
+    
+#     # Compute training MSE
+#     y_train_pred = model.predict(X_train_nn)
+#     train_mse = mean_squared_error(y_train_nn, y_train_pred)
+    
+#     # Forecast on test set
+#     y_test_pred = model.predict(X_test_nn)
+#     test_mse = mean_squared_error(y_test_nn, y_test_pred)
+    
+#     # Get corresponding timestamps (align to y_test_nn)
+#     timestamps = X_test.index[window_size:]
+
+#     return (forecast_day, train_mse, test_mse, y_test_nn.tolist(), y_test_pred.flatten().tolist(), timestamps)
+    
+
+def forecast_for_day_nn(forecast_day, X, y, model_type, epochs=50, batch_size=32, window_size=24, horizon=24):
+    # Training data: all data before forecast_day
     train_mask = X.index < forecast_day
     X_train = X[train_mask]
-    y_train_nn = y[train_mask]
+    y_train = y[train_mask]
     
-    test_mask = (X.index >= forecast_day) & (X.index < forecast_day + pd.Timedelta(days=1))
-    X_test = X[test_mask]
-    y_test_nn = y[test_mask]
-    
-    if X_train.empty or X_test.empty or len(X_test) < window_size:
+    # Ensure there's enough data for training sequences
+    if len(X_train) < window_size + horizon:
         return None
-
-    # Reshape the data: add a time-dimension of 1.
-    # (This is a simple trick to allow reuse of the NN architectures.
-    # Note: for CNNs a sequence length of 1 is not ideal so we adjust kernel_size in build_nn_model.)
-    X_train_nn = np.expand_dims(X_train.values, axis=1)  # shape: (n_train, 1, num_features)
-    X_test_nn = np.expand_dims(X_test.values, axis=1)    # shape: (n_test, 1, num_features)
-
-
-    #X_train_nn, y_train_nn = create_sliding_windows(X_train, y_train, window_size)
-    #X_test_nn, y_test_nn = create_sliding_windows(X_test, y_test, window_size)
+    
+    # Create training sequences (multi-output)
+    X_train_nn, y_train_nn = create_multistep_sequences(X_train, y_train, window_size, horizon)
+    
+    # For testing, use the last window_size hours right before forecast_day as input
+    test_input_start = forecast_day - pd.Timedelta(hours=window_size)
+    test_input_end = forecast_day
+    X_test_sample = X.loc[test_input_start:test_input_end].values
+    X_test_nn = np.expand_dims(X_test_sample, axis=0)
+    
+    # Get true values for the forecast day (if available)
+    y_test_sample = y.loc[forecast_day: forecast_day + pd.Timedelta(hours=horizon-1)].values
+    y_test_nn = np.expand_dims(y_test_sample, axis=0)
     
     # Define input shape for NN model (timesteps, features)
     input_shape = (X_train_nn.shape[1], X_train_nn.shape[2])
     
-    # Build model
+    # Build model with modified output layer for multi-output
     model = build_nn_model(model_type, input_shape)
     
-    # Set up callbacks (using early stopping; we mimic model checkpointing by saving a temporary file)
+    # Set up callbacks
     checkpoint_path = f"{model_type}_temp_{forecast_day.strftime('%Y%m%d')}.keras"
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     model_checkpoint = ModelCheckpoint(checkpoint_path, monitor='val_loss', save_best_only=True)
     
-    # For validation, you could use a split of the training set
     history = model.fit(X_train_nn, y_train_nn, epochs=epochs, batch_size=batch_size,
                         validation_split=0.1, callbacks=[early_stopping, model_checkpoint],
                         verbose=0)
     
-    # Optionally load the best model from checkpoint (if you want to strictly follow the snippet)
     if os.path.exists(checkpoint_path):
         model = tf.keras.models.load_model(checkpoint_path)
-        os.remove(checkpoint_path)  # clean up
+        os.remove(checkpoint_path)
     
     # Compute training MSE
     y_train_pred = model.predict(X_train_nn)
     train_mse = mean_squared_error(y_train_nn, y_train_pred)
     
-    # Forecast on test set
+    # Forecast on the test sample (one forward pass for 24 outputs)
     y_test_pred = model.predict(X_test_nn)
     test_mse = mean_squared_error(y_test_nn, y_test_pred)
     
-    # Get corresponding timestamps (align to y_test_nn)
-    timestamps = X_test.index[window_size:]
+    # Timestamps for the forecast day (24 hourly timestamps)
+    timestamps = y.loc[forecast_day: forecast_day + pd.Timedelta(hours=horizon-1)].index.tolist()
 
-    return (forecast_day, train_mse, test_mse, y_test_nn.tolist(), y_test_pred.flatten().tolist(), timestamps)
+    return (forecast_day, train_mse, test_mse, y_test_nn.flatten().tolist(), y_test_pred.flatten().tolist(), timestamps)
+
 
 
 # ========= Main expanding window forecaster for NN =========
@@ -667,15 +717,15 @@ if __name__ == "__main__":
     explore_data(weather_df, "Weather Data")
 
     # Run the forecaster
-    expanding_window_forecaster(energy_df, weather_df)
+    #expanding_window_forecaster(energy_df, weather_df)
 
     # Choose one of the NN methods: e.g., "lstm", "stacked_lstm", "cnn", "cnn_lstm", "time_distributed_mlp", "encoder_decoder"
-    nn_model_type = "time_distributed_mlp"  # change as desired
+    #nn_model_type = "time_distributed_mlp"  # change as desired
     # Run the NN forecaster
-    expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
+    #expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
 
-    nn_model_type = "cnn" 
-    expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
+    #nn_model_type = "cnn" 
+    #expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
 
     nn_model_type = "encoder_decoder" 
     expanding_window_forecaster_nn(energy_df, weather_df, nn_model_type=nn_model_type, epochs=50, batch_size=32, use_gpu=use_gpu)
