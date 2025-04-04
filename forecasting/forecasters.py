@@ -25,7 +25,7 @@ def run_forecast1(df: pd.DataFrame, shift: int = 96):
     # Drop rows with NaN forecast (i.e., first 48 rows)
     forecast_df = forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
     
-    return forecast_df
+    return forecast_df.fillna(0)  # Fill NaN values with 0 for forecasted_value
 
 
 def run_forecast2(
@@ -54,16 +54,12 @@ def run_forecast2(
 
     # Create condition masks
     hr_nonzero = forecast_df['HR'] != 0
-    hr_positive = forecast_df['HR'] > 0
-    hr_negative = forecast_df['HR'] <= 0
-
+    
     # Generate base noise (multiplicative factors ~ N(mu, sigma))
     base_noise = np.random.normal(loc=mu, scale=sigma, size=len(forecast_df))
 
-    # Scaling based on HR polarity
-    scale_factors = np.ones(len(forecast_df)) #FIXME: Should this not be zero?
-    scale_factors[hr_positive] = beta
-    scale_factors[hr_negative] = alpha
+    # Scale factors based on conditions
+    scale_factors = np.where(base_noise > 0, beta, alpha)
 
     # Final noise is multiplicative: noise = N(mu, sigma) * scale
     final_noise = base_noise * scale_factors
@@ -72,14 +68,15 @@ def run_forecast2(
     forecasted_value[hr_nonzero] = forecast_df['HR'][hr_nonzero] * final_noise[hr_nonzero]
 
     forecast_df['forecasted_value'] = forecasted_value
-    return forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
+    forecast_df = forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
+    return forecast_df.fillna(0)  # Fill NaN values with 0 for forecasted_value
 
 
 def run_forecast3(
         df: pd.DataFrame,
-        gamma: float = 1.0,
-        alpha: float = 0.8,
-        beta: float = 1.2
+        gamma: float = 0.5,
+        alpha: float = 0.5,
+        beta: float = 1.0
     ):
     """
     This method forecasts the value HR by using a random noise (EXP[gamma] * U[alpha, beta]).
@@ -104,12 +101,15 @@ def run_forecast3(
     exp_noise = np.random.exponential(scale=gamma, size=n)
     uniform_noise = np.random.uniform(low=alpha, high=beta, size=n)
     combined_noise = exp_noise * uniform_noise
+    combined_noise = np.clip(combined_noise, 0.8, 1.2)
+
 
     forecasted_value = np.full(len(forecast_df), np.nan)
     forecasted_value[hr_nonzero] = forecast_df['HR'][hr_nonzero].values * combined_noise
 
     forecast_df['forecasted_value'] = forecasted_value
-    return forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
+    forecast_df = forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
+    return forecast_df.fillna(0)  # Fill NaN values with 0 for forecasted_value
 
 
 
@@ -165,12 +165,13 @@ def run_forecast4(
     forecasted_value[hr_nonzero] = forecast_df.loc[hr_nonzero, 'HR'].values * (1 + scaled_noise)
 
     forecast_df['forecasted_value'] = forecasted_value
-    return forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
+    forecast_df = forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
+    return forecast_df.fillna(0)  # Fill NaN values with 0 for forecasted_value
 
 
 def run_forecast5(
     df: pd.DataFrame,
-    alpha: float = 2.0,
+    alpha: float = 1.0,
     beta: float = 0.5,
     gamma: float = 0.8,
     delta: float = 1.2
@@ -204,13 +205,15 @@ def run_forecast5(
     gamma_noise = np.random.gamma(shape=alpha, scale=beta, size=n)
     uniform_noise = np.random.uniform(low=gamma, high=delta, size=n)
     combined_noise = gamma_noise * uniform_noise
+    combined_noise = np.clip(combined_noise, 0.8, 1.2)
+
 
     forecasted_value = np.full(len(forecast_df), np.nan)
     forecasted_value[hr_nonzero] = forecast_df.loc[hr_nonzero, 'HR'].values * combined_noise
 
     forecast_df['forecasted_value'] = forecasted_value
     forecast_df = forecast_df[['datetime', 'forecasted_value']].reset_index(drop=True)
-    return forecast_df.fill_na
+    return forecast_df.fillna(0)  # Fill NaN values with 0 for forecasted_value
 
 
 

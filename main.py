@@ -7,6 +7,7 @@
 #   - running the evaluation methods 
 #
 import pandas as pd
+import numpy as np
 
 from combined_forecast.forecast_controller import ForecastController
 from combined_forecast.forecast_result_controller import ForecastResultController
@@ -67,27 +68,89 @@ def combine_forecasts(df: pd.DataFrame, forecast_dfs: list[pd.DataFrame]) -> pd.
 
     return combined
 
+def evaluate_and_plot_forecasts(filepath: str):
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from sklearn.metrics import mean_squared_error
+
+    # Load combined forecast CSV
+    df = pd.read_csv(filepath)
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    df['year'] = df['datetime'].dt.year
+
+    # Identify forecast columns (A1, A2, ..., An)
+    forecast_cols = [col for col in df.columns if col.startswith('A')]
+
+    # Calculate and print MSE for each forecast vs HR
+    print("🔍 Mean Squared Error per forecast:")
+    df.dropna(inplace=True)
+    for col in forecast_cols:
+        mse = mean_squared_error(df['HR'], df[col])
+        bias = np.mean(df[col] - df['HR'])
+        print(f"{col}: MSE = {mse:.2f}, Avg Bias = {bias:.2f}")
+
+    # Plot per year
+    """years = df['year'].unique()
+    for year in sorted(years):
+        yearly_df = df[df['year'] == year].copy()
+        plt.figure(figsize=(14, 6))
+        plt.title(f'Forecasts vs HR in {year}', fontsize=16)
+        
+        # Limit y-axis based on example screenshots (~0 to 6000+)
+        max_val = max(yearly_df[['HR'] + forecast_cols].max())
+        y_limit = int(((max_val // 1000) + 1) * 1000)  # Round up to nearest 1000
+        plt.ylim(0, y_limit)
+
+        # Plot actual HR
+        plt.plot(yearly_df['datetime'], yearly_df['HR'], label='HR (Actual)', linewidth=2, color='black')
+
+        # Plot forecasts
+        for col in forecast_cols:
+            plt.plot(yearly_df['datetime'], yearly_df[col], label=col, alpha=0.7)
+
+        plt.xlabel('Time')
+        plt.ylabel('Yield (HR)')
+        plt.legend()
+        plt.tight_layout()
+        plt.grid(True)
+        plt.show()"""
+
+    # --- Correlation Heatmap between forecast methods ---
+    corr = df[forecast_cols].corr()
+
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap='coolwarm', square=True, linewidths=0.5, cbar_kws={"shrink": 0.75})
+    plt.title("Correlation between forecast methods", fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+
+
 def run_combined_solar_data():
     df = pd.read_csv('SolarDataCombined.csv', sep=';', encoding='utf-8', engine='python')
     df['datetime'] = pd.to_datetime(df['Zeit'])
     df.drop(columns=['Zeit'], inplace=True)
-    print(df)
+    #print(df)
 
     df1 = run_forecast1(df)
-    print(df1)
-    df2 = run_forecast2(df)
-    print(df2)
-    df3 = run_forecast3(df)
-    print(df3)
-    df4 = run_forecast4(df)
-    print(df4)
-    df5 = run_forecast5(df)
-    print(df5)
+    #print(df1)
+    df2 = run_forecast2(df, alpha=0.95, beta=1.05, mu=1, sigma=0.1)
+    #print(df2)
+    df3 = run_forecast3(df, gamma=0.6, alpha=0.98, beta=1.02)
+    #print(df3)
+    df4 = run_forecast4(df, alpha=0.2, beta=0.1, t_peak=172, sigma=400)
+    #print(df4)
+    df5 = run_forecast5(df, alpha=4.0, beta=0.25, gamma=0.99, delta=1.01)
+    #print(df5)
+    df6 = run_forecast4(df, alpha=0.2, beta=0.1, t_peak=344, sigma=400)
 
-    combined_forecast = combine_forecasts(df, [df1, df2, df3, df4, df5])
-    print(combined_forecast)
+    combined_forecast = combine_forecasts(df, [df1, df2, df3, df4, df5, df6])
+    #print(combined_forecast)
 
     combined_forecast.to_csv('combined_forecast321.csv', index=False)
+    evaluate_and_plot_forecasts("combined_forecast321.csv")
+
 
 
 
