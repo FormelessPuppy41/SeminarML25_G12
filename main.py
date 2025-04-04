@@ -20,7 +20,9 @@ def run_models():
 
     flag_matrix_df = DataLoader().load_kaggle_data(file_names.kaggle_files.flag_matrix_file)
     flag_matrix_df.rename(columns={'date': 'datetime'}, inplace=True)
-    df = DataLoader().load_kaggle_data(file_names.kaggle_files.combined_forecasts_file)
+    #df = DataLoader().load_kaggle_data(file_names.kaggle_files.combined_forecasts_file)
+    df = DataLoader().load_input_data(file_names.input_files.forecast_data)
+    print(df.head())
 
     forecast_controller = ForecastController(
             df=df, 
@@ -33,7 +35,7 @@ def run_models():
             freq=model_settings.freq
         )
     
-    forecast_controller.forecast_xgboost()
+    forecast_controller.forecast_ridge()
 
 
 def run_results(file_name: str):
