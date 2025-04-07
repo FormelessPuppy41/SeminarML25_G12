@@ -183,7 +183,7 @@ def run_elastic_net(
 
 def run_day_ahead_adaptive_elastic_net(
     df: pd.DataFrame,
-    flag_matrix_df: pd.DataFrame,
+    #flag_matrix_df: pd.DataFrame,
     target_column: str,
     feature_columns: List[str],
     forecast_horizon: int = 96,
@@ -197,7 +197,7 @@ def run_day_ahead_adaptive_elastic_net(
     
     Args:
         df: Full input data with datetime, target and features.
-        flag_matrix_df: DataFrame indicating which time/forecast combination is complete (0) or not.
+        #flag_matrix_df: DataFrame indicating which time/forecast combination is complete (0) or not.
         target_column: Column name of the target variable (e.g., 'HR').
         feature_columns: List of forecast provider feature columns.
         forecast_horizon: Number of forecast periods (default=24 for hourly forecasts).
@@ -214,7 +214,7 @@ def run_day_ahead_adaptive_elastic_net(
 
     # TODO: This should be done in the data preparation step.
     if datetime_col not in df.columns:
-        print(df, flag_matrix_df)
+        #print(df, flag_matrix_df)
         raise ValueError(f"'{datetime_col}' not found in DataFrame.")
     
     df = df.copy()
@@ -242,7 +242,7 @@ def run_day_ahead_adaptive_elastic_net(
         # Update the interpolators if we move to a new forecast date
         if last_forecast_date is None or forecast_date != last_forecast_date:
             last_forecast_date = forecast_date
-            current_date_interpolator_prev = data_interpolate_prev(df, flag_matrix_df, forecast_date, rolling_window_days)
+            current_date_interpolator_prev = data_interpolate_prev(df, forecast_date, rolling_window_days)
             current_date_interpolator_fut = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
 
         # Get the training data for the previous rolling window

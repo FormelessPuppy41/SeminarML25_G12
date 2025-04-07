@@ -33,7 +33,6 @@ def preprocess_data(data: pd.DataFrame):
         None
     """
     raise NotImplementedError("This function is not implemented yet.")
-    return data
 
 
 def explore_data(data:pd.DataFrame, df_name: str = None):

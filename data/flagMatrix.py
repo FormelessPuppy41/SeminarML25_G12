@@ -25,11 +25,14 @@ This flag matrix can later be used in a separate function to perform the actual 
 import numpy as np
 import pandas as pd
 
+from data.data_loader import DataLoader
+from configuration import FileNames, ModelSettings
+
 # -----------------------------------------------------------------------------
 # Helper functions for quality checking (do not modify data)
 # -----------------------------------------------------------------------------
 
-def check_new_forecast_flags(B, max_install, thresholds):
+def _check_new_forecast_flags(B, max_install, thresholds):
     """
     Check a new day forecast (B) for one provider against quality criteria (Step 1)
     without modifying the data. It iterates through the forecast array and, upon the first
@@ -106,7 +109,7 @@ def check_new_forecast_flags(B, max_install, thresholds):
     
     return 0
 
-def check_hist_forecast_flags(B_hist, max_install, thresholds):
+def _check_hist_forecast_flags(B_hist, max_install, thresholds):
     """
     Check a historical forecast (B_hist) for one provider (Step 2) without modifying it.
     The criteria (with example threshold names and violation codes) are:
@@ -175,16 +178,16 @@ def check_hist_forecast_flags(B_hist, max_install, thresholds):
     
     return 0
 
-def process_provider_flags(B, B_hist, max_install, thresholds_new, thresholds_hist):
+def _process_provider_flags(B, B_hist, max_install, thresholds_new, thresholds_hist):
     """
     Process a single forecast provider for one day by checking both the new day forecast (B)
     and the historical forecast (B_hist) against their respective criteria.
     
     The procedure is as follows:
-      - First, check the new day forecast (Step 1) using check_new_forecast_flags(). If any violation
+      - First, check the new day forecast (Step 1) using _check_new_forecast_flags(). If any violation
         is found, immediately return that violation code (1–5).
       - If the new day forecast passes (returns 0), then check the historical forecast (Step 2)
-        using check_hist_forecast_flags(). If a violation is found, return that violation code (6–10).
+        using _check_hist_forecast_flags(). If a violation is found, return that violation code (6–10).
       - If both checks return 0, then the provider is valid (return 0).
     
     Parameters:
@@ -202,24 +205,24 @@ def process_provider_flags(B, B_hist, max_install, thresholds_new, thresholds_hi
     Returns:
       int: Final flag code for the provider on that day (0 if valid; nonzero if any violation).
     """
-    flag_new = check_new_forecast_flags(B, max_install, thresholds_new)
+    flag_new = _check_new_forecast_flags(B, max_install, thresholds_new)
     if flag_new != 0:
         return flag_new
     else:
-        flag_hist = check_hist_forecast_flags(B_hist, max_install, thresholds_hist)
+        flag_hist = _check_hist_forecast_flags(B_hist, max_install, thresholds_hist)
         return flag_hist
 
 # -----------------------------------------------------------------------------
 # Rolling Window Processing over a Full Dataset
 # -----------------------------------------------------------------------------
 
-def process_full_dataset(df, rolling_window_days, resolution, max_install,
+def _process_full_dataset(df, rolling_window_days, resolution, max_install,
                          thresholds_new, thresholds_hist):
     """
     Process an entire CSV dataset (spanning multiple years) using a rolling window.
     
     The input DataFrame must have:
-      - A 'datetime' column (with date and time).
+      - A ModelSettings.datetime_col column (with date and time).
       - Forecast columns (e.g., 'A1', 'A2', ..., 'A5').
       - (Other columns, like 'generation solar', are ignored here.)
     
@@ -230,8 +233,8 @@ def process_full_dataset(df, rolling_window_days, resolution, max_install,
           * The "new day" forecasts are those from the current day.
           * The historical data for each provider is formed by concatenating the forecasts
             from the previous 'rolling_window_days' days (i.e., resolution * rolling_window_days values).
-          * For each forecast provider, process the new day forecast (using check_new_forecast_flags)
-            and the historical forecast (using check_hist_forecast_flags) via process_provider_flags().
+          * For each forecast provider, process the new day forecast (using _check_new_forecast_flags)
+            and the historical forecast (using _check_hist_forecast_flags) via _process_provider_flags().
           * Record the resulting flag for that provider on that day.
       - The output is a DataFrame where each row corresponds to one day (the new day) and each column
         (besides 'date') corresponds to a forecast provider. A 0 means the provider is valid for that day;
@@ -239,7 +242,7 @@ def process_full_dataset(df, rolling_window_days, resolution, max_install,
     
     Parameters:
       df : pd.DataFrame
-          The full dataset containing a 'datetime' column and forecast columns.
+          The full dataset containing a ModelSettings.datetime_col column and forecast columns.
       rolling_window_days : int
           The number of days in the rolling window (e.g., 165).
       resolution : int
@@ -255,14 +258,14 @@ def process_full_dataset(df, rolling_window_days, resolution, max_install,
       pd.DataFrame: A DataFrame with one row per day (starting from day (rolling_window_days + 1))
                     and columns for each forecast provider containing the flag codes.
     """
-    # Convert 'datetime' to pandas datetime and add a 'date' column (date only)
-    df['datetime'] = pd.to_datetime(df['datetime'])
-    df['date'] = df['datetime'].dt.date
+    # Convert ModelSettings.datetime_col to pandas datetime and add a 'date' column (date only)
+    df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col])
+    df['date'] = df[ModelSettings.datetime_col].dt.date
     # optional: Sort the DataFrame by datetime (if not already sorted) by removing commented line below.
-    #df = df.sort_values(by='datetime').reset_index(drop=True)
+    #df = df.sort_values(by=ModelSettings.datetime_col).reset_index(drop=True)
     
-    # Identify forecast provider columns. Assume all columns except 'datetime', 'date', and 'generation solar' are forecast columns.
-    exclude_cols = {'datetime', 'date', 'generation solar'}
+    # Identify forecast provider columns. Assume all columns except ModelSettings.datetime_col, 'date', and 'generation solar' are forecast columns.
+    exclude_cols = {ModelSettings.datetime_col, 'date', ModelSettings.target}
     forecast_cols = [col for col in df.columns if col not in exclude_cols]
     
     # Group data by day; each group should have exactly 'resolution' rows.
@@ -304,7 +307,7 @@ def process_full_dataset(df, rolling_window_days, resolution, max_install,
         for prov in forecast_cols:
             B = new_day_data[prov]
             B_hist = hist_data[prov]
-            flag = process_provider_flags(B, B_hist, max_install, thresholds_new, thresholds_hist)
+            flag = _process_provider_flags(B, B_hist, max_install, thresholds_new, thresholds_hist)
             day_flags[prov] = flag
         # Record the date and the flags as one row.
         day_flags['date'] = current_day
@@ -312,8 +315,10 @@ def process_full_dataset(df, rolling_window_days, resolution, max_install,
     
     # Create a DataFrame from the flag rows.
     flag_df = pd.DataFrame(flag_rows)
+    print('flag_df: ',flag_df.head())
     # Ensure 'date' is the first column.
     cols = flag_df.columns.tolist()
+    print(cols)
     cols.remove('date')
     flag_df = flag_df[['date'] + cols]
     
@@ -322,13 +327,12 @@ def process_full_dataset(df, rolling_window_days, resolution, max_install,
 # -----------------------------------------------------------------------------
 # Example Usage
 # -----------------------------------------------------------------------------
-
-if __name__ == "__main__":
+def run_flag_matrix():
     # Load your CSV file
-    df = pd.read_csv("/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/kaggle_data/combined_forecasts.csv")
-
+    df = DataLoader().load_input_data(FileNames.input_files.combined_forecasts)
+    print(df.head())
     # Convert datetime using ISO format (since your CSV uses "2015-01-13 00:00:00")
-    df['datetime'] = pd.to_datetime(df['datetime'], format="%Y-%m-%d %H:%M:%S")
+    df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col], format="%Y-%m-%d %H:%M:%S")
     
     # Define the parameters
     rolling_window_days = 165
@@ -352,12 +356,54 @@ if __name__ == "__main__":
     }
 
     # Run the preprocessing to generate the flag matrix (one row per day, one column per forecast provider)
-    flag_matrix = process_full_dataset(df, rolling_window_days, resolution, max_install, thresholds_new, thresholds_hist)
+    flag_matrix = _process_full_dataset(df, rolling_window_days, resolution, max_install, thresholds_new, thresholds_hist)
 
     # View the flag matrix on screen
     print(flag_matrix)
     
     # Save the resulting flag matrix to a CSV file
-    output_file = "/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/kaggle_data/flag_matrix.csv"
+    output_file = "/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/input_files/flag_matrix.csv"
+    flag_matrix.to_csv(output_file, index=False)
+    print(f"Flag matrix saved to {output_file}")
+
+
+
+
+if __name__ == "__main__":
+    # Load your CSV file
+    df = DataLoader().load_input_data(FileNames.input_files.combined_forecasts)
+    
+    # Convert datetime using ISO format (since your CSV uses "2015-01-13 00:00:00")
+    df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col], format="%Y-%m-%d %H:%M:%S")
+    
+    # Define the parameters
+    rolling_window_days = 165
+    resolution = 24  # Or 96 if your data is quarter-hourly
+    max_install = 1000000000.0
+
+    thresholds_new = {
+        'unfeasible': 5,
+        'zero_reps': 10,
+        'nonzero_reps': 10,
+        'total_na': 10,
+        'consecutive_na': 5
+    }
+
+    thresholds_hist = {
+        'unfeasible': 100,
+        'zero_reps': 960,
+        'nonzero_reps': 960,
+        'total_na': 960,
+        'consecutive_na': 96
+    }
+
+    # Run the preprocessing to generate the flag matrix (one row per day, one column per forecast provider)
+    flag_matrix = _process_full_dataset(df, rolling_window_days, resolution, max_install, thresholds_new, thresholds_hist)
+
+    # View the flag matrix on screen
+    print(flag_matrix)
+    
+    # Save the resulting flag matrix to a CSV file
+    output_file = "/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/input_files/flag_matrix.csv"
     flag_matrix.to_csv(output_file, index=False)
     print(f"Flag matrix saved to {output_file}")

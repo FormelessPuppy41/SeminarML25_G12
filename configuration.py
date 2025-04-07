@@ -53,6 +53,7 @@ class ModelParameters:
         'objective': 'reg:squarederror'
     }
 
+
 @dataclass
 class ModelSettings:
     """
@@ -66,8 +67,8 @@ class ModelSettings:
         - datetime_col (str): The datetime column.
         - freq (str): The frequency of the data.
     """
-    target = 'generation solar'
-    features = ["A1", "A2", "A3", "A4", "A5", "A6"]
+    target = 'HR'
+    features = ["K", "A1", "A2", "A3", "A4", "A5", "A6"]
     forecast_horizon = 24
     rolling_window_days = 165
     datetime_col = 'datetime'
@@ -86,6 +87,8 @@ class FileNames:
         """
         params_file = 'params.csv'
         solar_combined_data = 'SolarDataCombined.csv'
+        combined_forecasts = 'combined_forecasts.csv'
+        flag_matrix = 'flag_matrix.csv'
 
     @dataclass
     class OutputFiles:

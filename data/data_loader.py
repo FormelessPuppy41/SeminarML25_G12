@@ -67,7 +67,7 @@ class DataLoader:
         return self._load_data(path)
 
     
-    def _load_data(self, path: str):
+    def _load_data(self, path: str, dot_comma_sep: bool = False):
         """
         This function loads the data from a CSV file.
 
@@ -79,7 +79,10 @@ class DataLoader:
         """
         # check the file type to use either csv or xlsx
         if path.endswith('.csv'):
-            return pd.read_csv(path)
+            if dot_comma_sep:
+                return pd.read_csv(path, sep=';', encoding='utf-8', engine='python')
+            else:
+                return pd.read_csv(path)
         elif path.endswith('.xlsx'):
             return pd.read_excel(path)
         else:

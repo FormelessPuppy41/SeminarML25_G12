@@ -12,7 +12,7 @@ class ForecastRunner:
 
     Input:
         - df: pandas DataFrame
-        - flag_matrix_df: pandas DataFrame with the flag matrix
+        - #flag_matrix_df: pandas DataFrame with the flag matrix
         - target: target column name
         - features: list of feature column names
         - forecast_horizon: forecast horizon
@@ -30,7 +30,7 @@ class ForecastRunner:
     def __init__(
             self, 
             df: pd.DataFrame, 
-            flag_matrix_df: pd.DataFrame,
+            #flag_matrix_df: pd.DataFrame,
             target: str, 
             features: List[str],
             forecast_horizon: int = 96,
@@ -39,7 +39,7 @@ class ForecastRunner:
             freq: str = '15min'
         ):
         self._df = df
-        self._flag_matrix_df = flag_matrix_df
+        #self._flag_matrix_df = flag_matrix_df
         self._target = target
         self._features = features
         self._forecast_horizon = forecast_horizon
@@ -63,7 +63,7 @@ class ForecastRunner:
 
         return run_day_ahead_ridge(
             df=self._df, 
-            flag_matrix_df=self._flag_matrix_df,
+            #flag_matrix_df=self._flag_matrix_df,
             target_column=self._target, 
             feature_columns=self._features, 
             forecast_horizon=self._forecast_horizon,
@@ -89,7 +89,7 @@ class ForecastRunner:
 
         return run_day_ahead_lasso(
             df=self._df, 
-            flag_matrix_df=self._flag_matrix_df,
+            #flag_matrix_df=self._flag_matrix_df,
             target_column=self._target, 
             feature_columns=self._features, 
             forecast_horizon=self._forecast_horizon,
@@ -117,7 +117,7 @@ class ForecastRunner:
 
         return run_day_ahead_elastic_net(
             df=self._df,
-            flag_matrix_df=self._flag_matrix_df,
+            #flag_matrix_df=self._flag_matrix_df,
             target_column=self._target,
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,
@@ -151,7 +151,7 @@ class ForecastRunner:
 
         return run_day_ahead_adaptive_elastic_net(
             df=self._df,
-            flag_matrix_df=self._flag_matrix_df,
+            #flag_matrix_df=self._flag_matrix_df,
             target_column=self._target,
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,
@@ -185,7 +185,7 @@ class ForecastRunner:
 
         return run_day_ahead_xgboost(
             df=self._df,
-            flag_matrix_df=self._flag_matrix_df,
+            #flag_matrix_df=self._flag_matrix_df,
             target_column=self._target,
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,

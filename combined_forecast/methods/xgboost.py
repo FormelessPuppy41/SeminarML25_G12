@@ -148,7 +148,7 @@ def run_xgboost(
 
 def run_day_ahead_xgboost(
     df: pd.DataFrame,
-    flag_matrix_df: pd.DataFrame,
+    #flag_matrix_df: pd.DataFrame,
     target_column: str,
     feature_columns: List[str],
     forecast_horizon: int = 96,
@@ -192,7 +192,7 @@ def run_day_ahead_xgboost(
         # Update the interpolators if we move to a new forecast date
         if last_forecast_date is None or forecast_date != last_forecast_date:
             last_forecast_date = forecast_date
-            current_date_interpolator_prev = data_interpolate_prev(df, flag_matrix_df, forecast_date, rolling_window_days)
+            current_date_interpolator_prev = data_interpolate_prev(df, forecast_date, rolling_window_days)
             current_date_interpolator_fut = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
 
         # Get the training data for the previous rolling window

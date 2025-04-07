@@ -5,7 +5,7 @@ from configuration import ModelSettings
 
 def data_interpolate_prev(
         raw_df: pd.DataFrame, 
-        indicator_df: pd.DataFrame, 
+        #indicator_df: pd.DataFrame, 
         current_date: pd.Timestamp, 
         rolling_window_days: int = 165
     ) -> pd.DataFrame:
@@ -14,7 +14,7 @@ def data_interpolate_prev(
 
     Args:
         raw_df (pd.DataFrame): The raw input data -> df(time, HR, forecasts)
-        indicator_df (pd.DataFrame): The indicator data, indicting which time/fcst combination has either 0 (complete), or other value.
+        #indicator_df (pd.DataFrame): The indicator data, indicting which time/fcst combination has either 0 (complete), or other value.
         current_date (pd.Timestamp): The current date.
 
     Returns:
@@ -30,7 +30,7 @@ def data_interpolate_prev(
     working_df = raw_df.loc[mask].copy()
 
     # Ensure indicator_df datetime column is datetime type
-    indicator_df[ModelSettings.datetime_col] = pd.to_datetime(indicator_df[ModelSettings.datetime_col])
+    #indicator_df[ModelSettings.datetime_col] = pd.to_datetime(indicator_df[ModelSettings.datetime_col])
     
     # Initialize output with target column
     interpolated_df = pd.DataFrame()
