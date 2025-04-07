@@ -66,22 +66,6 @@ class DataLoader:
         path = f'{self.path}/50hertz_files/{file_name}'
         return self._load_data(path)
 
-    def load_kaggle_data(self, file_name: str = 'energy.csv'):
-        """
-        This function loads the Kaggle data from a CSV file.
-
-        Args:
-            file_name (str): The file name for the Kaggle data. Either 'energy.csv' or 'weather.csv'. 
-
-        Returns:
-            pd.DataFrame: The Kaggle data.
-        """
-        # check if the file name is valid
-        if file_name not in [file_names.kaggle_files.energy_data_file, file_names.kaggle_files.weather_data_file, file_names.kaggle_files.combined_forecasts_file, file_names.kaggle_files.flag_matrix_file]:
-            raise ValueError(f'File name not valid. Use either {file_names.kaggle_files.energy_data_file} or {file_names.kaggle_files.weather_data_file}')
-       
-        path = f'{self.path}/kaggle_data/{file_name}'
-        return self._load_data(path)
     
     def _load_data(self, path: str):
         """

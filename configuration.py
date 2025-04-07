@@ -67,11 +67,11 @@ class ModelSettings:
         - freq (str): The frequency of the data.
     """
     target = 'generation solar'
-    features = ["A1", "A2", "A3", "A4", "A5"]
+    features = ["A1", "A2", "A3", "A4", "A5", "A6"]
     forecast_horizon = 24
     rolling_window_days = 165
     datetime_col = 'datetime'
-    freq = '1H'
+    freq = '15min'
 
 
 @dataclass
@@ -84,8 +84,8 @@ class FileNames:
         Attributes:
             - data_file (str): The data file.
         """
-        data_file = 'data.csv'
-        forecast_data = 'JillesTransformer2.csv'
+        params_file = 'params.csv'
+        solar_combined_data = 'SolarDataCombined.csv'
 
     @dataclass
     class OutputFiles:
@@ -96,8 +96,7 @@ class FileNames:
             - processed_data (str): The processed data file ready to be used for forecasting.
             - sample_complete_Ty (str): The sample complete Ty file.
         """
-        processed_data = 'processed_data.csv'
-        sample_complete_Ty = 'sample_complete_Ty.csv'
+        pass
 
     @dataclass
     class ModelResultFiles:
@@ -128,22 +127,8 @@ class FileNames:
         solar = 'Solar_Combined.csv'
         wind = 'Windenergie_Combined.csv'
 
-    @dataclass
-    class KaggleFiles:
-        """
-        Class to store Kaggle file names.
-
-        Attributes:
-            - data_file (str): The data file.
-        """
-        energy_data_file = 'energy.csv'
-        weather_data_file = 'weather.csv'
-        flag_matrix_file = 'flag_matrix.csv'
-        combined_forecasts_file = 'combined_forecasts.csv'
-
 
     input_files = InputFiles()
     output_files = OutputFiles()
     model_result_files = ModelResultFiles()
     hz50_files = HZ50Files()
-    kaggle_files = KaggleFiles()

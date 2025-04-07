@@ -60,7 +60,7 @@ def combine_forecasts(df: pd.DataFrame, forecast_dfs: list[pd.DataFrame]) -> pd.
     Returns:
         pd.DataFrame: Combined DataFrame with forecasts as columns A1, A2, ..., An
     """
-    combined = df[['datetime', 'HR']].copy()
+    combined = df[['datetime', 'HR', 'K']].copy()
 
     for i, forecast_df in enumerate(forecast_dfs):
         forecast_df_renamed = forecast_df.rename(columns={'forecasted_value': f'A{i+1}'})
@@ -85,13 +85,13 @@ def evaluate_and_plot_forecasts(filepath: str):
 
     # --- Print overall and per-year MSE & Bias ---
     def print_error_metrics(df, forecast_cols):
-        print("🔍 Overall Mean Squared Error and Average Bias per Forecast:")
+        print("Overall Mean Squared Error and Average Bias per Forecast:")
         for col in forecast_cols:
             mse = mean_squared_error(df['HR'], df[col])
             bias = np.mean(df[col] - df['HR'])
             print(f"{col}: MSE = {mse:.2f}, Avg Bias = {bias:.2f}")
 
-        print("\n📆 MSE and Avg Bias per Forecast per Year:")
+        print("\nMSE and Avg Bias per Forecast per Year:")
         for year in sorted(df['year'].unique()):
             df_year = df[df['year'] == year]
             print(f"\nYear: {year}")
@@ -140,10 +140,11 @@ def evaluate_and_plot_forecasts(filepath: str):
                 mse = mean_squared_error(df_year['HR'], df_year[col])
                 mse_data.append({'Year': year, 'Forecast': col, 'MSE': mse})
         mse_df = pd.DataFrame(mse_data)
+        print(mse_df[mse_df['Forecast'] == 'K'])
 
         plt.figure(figsize=(12, 6))
         sns.barplot(data=mse_df, x='Year', y='MSE', hue='Forecast', palette='tab10')
-        plt.title('📊 Forecast MSE by Year', fontsize=16)
+        plt.title('Forecast MSE by Year', fontsize=16)
         plt.ylabel('Mean Squared Error')
         plt.xlabel('Year')
         plt.legend(title='Forecast', bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -154,6 +155,7 @@ def evaluate_and_plot_forecasts(filepath: str):
     # --- Main workflow ---
     df = load_data(filepath)
     forecast_cols = [col for col in df.columns if col.startswith('A')]
+    forecast_cols = forecast_cols + ['K']
 
     print_error_metrics(df, forecast_cols)
     plot_forecasts_per_year(df, forecast_cols)

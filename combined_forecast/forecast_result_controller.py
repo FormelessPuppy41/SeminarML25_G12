@@ -4,7 +4,7 @@ This module is used to control the forecast results.
 #imports:
 from icecream import ic
 
-from combined_forecast.forecast_result_processor import ForecastResultProcessor
+from combined_forecast.helpers.forecast_result_processor import ForecastResultProcessor
 from data.data_loader import DataLoader
 from configuration import FileNames
 
@@ -80,3 +80,6 @@ class ForecastResultController:
         forecast_result_processor.plot_error_distribution()
         forecast_result_processor.plot_mae_by_hour()
         forecast_result_processor.analyze_best_params()
+
+
+

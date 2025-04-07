@@ -7,8 +7,8 @@ from typing import List, Dict, Any, Callable
 import time
 
 from configuration import ModelParameters, FileNames
-from combined_forecast.forecast_runner import ForecastRunner
-from combined_forecast.forecast_writer import ForecastWriter
+from combined_forecast.helpers.forecast_runner import ForecastRunner
+from combined_forecast.helpers.forecast_writer import ForecastWriter
 
 class ForecastController:
     """
