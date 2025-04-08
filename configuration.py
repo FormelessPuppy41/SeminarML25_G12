@@ -22,16 +22,19 @@ class ModelParameters:
             - verbose: verbosity level 
     """
     ridge_params = {
-        'alpha': 0.5
+        'alpha': 0.5, 
+        'alpha_grid': [0.1, 1.0, 10.0],
     }
 
     lasso_params = {
-        'alpha': 0.5
+        'alpha': 0.5,
+        'alpha_grid': [0.1, 1.0, 10.0]
     }
 
     elastic_net_params = {
         'alpha': 0.5,
-        'l1_ratio': 0.5
+        'l1_ratio': 0.5,
+        'alpha_grid': [0.1, 1.0, 10.0],
     }
 
     adaptive_elastic_net_params = {
@@ -82,6 +85,7 @@ class FileNames:
             - data_file (str): The data file.
         """
         data_file = 'data.csv'
+        forecast_data = 'JillesTransformer2.csv'
 
     @dataclass
     class OutputFiles:

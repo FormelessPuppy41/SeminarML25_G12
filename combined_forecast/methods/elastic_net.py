@@ -10,6 +10,8 @@ from sklearn.linear_model import ElasticNet
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import ElasticNet, Ridge, Lasso
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+
 
 from configuration import ModelSettings
 
@@ -145,40 +147,58 @@ def run_elastic_net(
 ):
     """
     Run an Elastic Net regression model on test data using training data.
-
+    If an "alpha_grid" is provided in params, grid search is performed over the specified
+    list of alpha values to select the best model.
+    
     Args:
         train (pd.DataFrame): The training data.
         test (pd.DataFrame): The testing data.
         target (str): The target column name.
         features (List[str]): List of feature column names.
-        params (Dict[str, Any]): Parameters for ElasticNet.
-
+        params (Dict[str, Any]): Parameters for the model. It can include 'alpha', 'l1_ratio',
+                                 'random_state', and optionally 'alpha_grid' (a list of alphas).
+    
     Returns:
         pd.DataFrame: Test set with predictions added in 'prediction' column.
     """
-    params = {
-        'alpha': params.get('alpha', 1.0),
-        'l1_ratio': params.get('l1_ratio', 0.5),
-        'random_state': params.get('random_state', 42)
-    }
-
-    # check if train has any NaN values
-    if train.isnull().values.any():
-        print("WARNING: Training data contains NaN values. Specifically in the following columns:")
-        print(train.columns[train.isnull().any()].tolist())
-        nan_cols = train.columns[train.isnull().any()].tolist()
-        for col in nan_cols:
-            # print the nan values:
-            print(f"NaN values in column: {col}: {train[col].isnull().sum()}")
-            print(train[col].tolist())
-           
-    model = get_model_from_params(params)
-    model.fit(train[features], train[target])
-
+    # Check if grid search for alpha is requested
+    if 'alpha_grid' in params:
+        # Extract the alpha grid values and remove from params to avoid conflicts
+        alpha_grid = params.pop('alpha_grid')
+        # Use the first value as a placeholder; grid search will tune this parameter.
+        base_params = {
+            'alpha': alpha_grid[0],
+            'l1_ratio': params.get('l1_ratio', 0.5),
+            'random_state': params.get('random_state', 42)
+        }
+        model = get_model_from_params(base_params)
+        # The name of the estimator in the pipeline (e.g., 'elasticnet', 'ridge', or 'lasso')
+        step_name = model.steps[-1][0]
+        # Construct the parameter grid for grid search
+        param_grid = {f"{step_name}__alpha": alpha_grid}
+        
+        tscv = TimeSeriesSplit(n_splits=3)
+        gs = GridSearchCV(model, param_grid, cv=tscv)
+        gs.fit(train[features], train[target])
+        
+        best_model = gs.best_estimator_
+        predictions = best_model.predict(test[features])
+        best_alpha = gs.best_params_[f'{step_name}__alpha']
+    else:
+        # Use fixed alpha value if no alpha_grid is provided.
+        fixed_params = {
+            'alpha': params.get('alpha', 1.0),
+            'l1_ratio': params.get('l1_ratio', 0.5),
+            'random_state': params.get('random_state', 42)
+        }
+        best_alpha = fixed_params['alpha']
+        model = get_model_from_params(fixed_params)
+        model.fit(train[features], train[target])
+        predictions = model.predict(test[features])
+        
     test = test.copy()
-    test['prediction'] = model.predict(test[features])
-    return test
-
+    test['prediction'] = predictions
+    return test, best_alpha
 
 def run_day_ahead_elastic_net(
     df: pd.DataFrame,
@@ -269,11 +289,12 @@ def run_day_ahead_elastic_net(
                 print(f"WARNING: No test data for timestamp {ts}")
                 continue
             
-            pred_df = run_elastic_net(train_df, row_df, target_column, feature_columns, enet_params)
+            pred_df, best_alpha = run_elastic_net(train_df, row_df, target_column, feature_columns, enet_params)
             forecast_results.append({
                 'target_time': ts,
                 'prediction': pred_df['prediction'].values[0],
-                'actual': pred_df[target_column].values[0]
+                'actual': pred_df[target_column].values[0],
+                'best_alpha': best_alpha
             })
 
     return pd.DataFrame(forecast_results)
