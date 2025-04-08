@@ -58,6 +58,7 @@ class ForecastRunner:
             df=self._df, 
             target_column=self._target,  
             forecast_horizon=self._forecast_horizon,
+            features=self._features,
             datetime_col=self._datetime_col,
             freq=self._freq
         )

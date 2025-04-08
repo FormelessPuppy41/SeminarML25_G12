@@ -15,35 +15,7 @@ from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 
 from configuration import ModelSettings
 
-from .utils import data_interpolate_prev, data_interpolate_fut
-
-
-def get_model_from_params(params: Dict[str, Any]):
-    """
-    Create a pipeline with an ElasticNet, Ridge, or Lasso model based on the parameters. 
-
-    If l1_ratio is 0.0, Ridge regression is used.
-    If l1_ratio is 1.0, Lasso regression is used.
-    Otherwise, ElasticNet regression is used.
-
-    Args:
-        params (Dict[str, Any]): Parameters for the model. Such as 'alpha', 'l1_ratio', and 'random_state'.
-
-    Returns:
-        Pipeline: A pipeline with the selected model.
-    """
-    # Get the parameters
-    alpha = params.get("alpha", 1.0)
-    l1_ratio = params.get("l1_ratio", 0.5)
-    random_state = params.get("random_state", 42)
-
-    # Create a pipeline with the selected model
-    if l1_ratio == 0.0:
-        return make_pipeline(StandardScaler(), Ridge(alpha=alpha, random_state=random_state))
-    elif l1_ratio == 1.0:   
-        return make_pipeline(StandardScaler(), Lasso(alpha=alpha, random_state=random_state))
-    else:
-        return make_pipeline(StandardScaler(), ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000, random_state=random_state))
+from .utils import data_interpolate_prev, data_interpolate_fut, get_model_from_params
 
 
 def run_elastic_net(

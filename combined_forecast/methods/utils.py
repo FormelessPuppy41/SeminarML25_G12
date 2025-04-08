@@ -3,6 +3,32 @@ import pandas as pd
 
 from configuration import ModelSettings
 
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge, Lasso, ElasticNet
+from sklearn.model_selection import GridSearchCV
+
+def tune_model_with_gridsearch(pipeline, param_grid, X_train, y_train, grid_params):
+    grid = GridSearchCV(pipeline, param_grid=param_grid, **grid_params)
+    grid.fit(X_train, y_train)
+    return grid
+
+
+def get_model_from_params(params):
+    alpha = params.get("alpha", 1.0)
+    l1_ratio = params.get("l1_ratio", 0.5)
+    random_state = params.get("random_state", 42)
+
+    if l1_ratio == 0.0:
+        model = Ridge(alpha=alpha, random_state=random_state)
+    elif l1_ratio == 1.0:
+        model = Lasso(alpha=alpha, random_state=random_state)
+    else:
+        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000, random_state=random_state)
+
+    return make_pipeline(StandardScaler(), model)
+
+
 def data_interpolate_prev(
         raw_df: pd.DataFrame, 
         #indicator_df: pd.DataFrame, 

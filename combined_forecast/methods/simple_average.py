@@ -20,7 +20,6 @@ def run_simple_average(
         pd.DataFrame: The testing data with predictions.
     """
     test = test.copy()
-    
     test['prediction'] = test[features].mean(axis=1)
     test['target_time'] = test.index
     test['actual'] = test[target]
@@ -69,7 +68,7 @@ def run_day_ahead_simple_average(
     # Get unique forecast dates
     unique_dates = df.index.unique()
     forecast_dates = [pd.Timestamp(d) for d in unique_dates if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)]
-    print(df.head(300))
+    
     for forecast_date in forecast_dates[1:]:
         print(f"Forecast date (09:00): {forecast_date}")
 
@@ -81,12 +80,12 @@ def run_day_ahead_simple_average(
         test_result = run_simple_average(
             test=test,
             target=target_column,
-            features=[features]
+            features=features
         )
         
         results.append(test_result)
-
-    return pd.concat(results, ignore_index=True) if results else pd.DataFrame(columns=['target_time', 'actual', 'prediction'])
+    df = pd.concat(results, ignore_index=True) if results else pd.DataFrame(columns=['target_time', 'actual', 'prediction'])
+    return df.fillna(0)
 
         
 

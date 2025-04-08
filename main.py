@@ -28,9 +28,9 @@ def run_models():
     # print(flag_matrix_df.head())
 
     df = DataLoader().load_input_data(file_names.input_files.combined_forecasts)
-    print(df.head(50))
+    
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
-    df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2017')]
+    df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2012')]
     #print(df.head())
 
     forecast_controller = ForecastController(
