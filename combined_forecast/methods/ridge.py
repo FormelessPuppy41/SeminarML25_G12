@@ -28,14 +28,11 @@ def run_ridge(
         pd.DataFrame: The testing data with the predictions.
     """
     # Ridge is ElasticNet with no L1 penalty
-    ridge_params = {
-        'alpha': params.get('alpha', 1.0),
-        'l1_ratio': 0.0,  # Ridge is ElasticNet with no L1 penalty
-        'random_state': params.get('random_state', 42)
-    }
+    if not params:
+        raise ValueError("Ridge parameters must be provided.")
 
     # Run the ElasticNet model with l1_ratio = 0.0
-    return run_elastic_net(train, test, target, features, ridge_params)
+    return run_elastic_net(train, test, target, features, params)
 
 
 

@@ -22,28 +22,25 @@ class ModelParameters:
             - verbose: verbosity level 
     """
     ridge_params = {
-        'alpha': 0.5, 
-        'alpha_grid': [0.1, 1.0, 10.0],
+        'alpha_grid': [0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
+        'l1_ratio': 0.0  # enforce ridge behavior
     }
 
     lasso_params = {
-        'alpha': 0.5,
-        'alpha_grid': [0.1, 1.0, 10.0]
+        'alpha_grid': [0.1, 1.0, 10.0],
+        'l1_ratio': 1.0  # enforce lasso behavior
     }
 
     elastic_net_params = {
-        'alpha': 0.5,
-        'l1_ratio': 0.5,
         'alpha_grid': [0.1, 1.0, 10.0],
+        'l1_ratio': 0.5
     }
 
     adaptive_elastic_net_params = {
-        'elasticnet__alpha': [0.1, 1.0, 10.0],
-        'elasticnet__l1_ratio': [0.0, 0.5, 1.0],
-        'cv': 5,
-        'n_jobs': -1,
-        'verbose': 1
+        'alpha_grid': [0.1, 1.0, 10.0],
+        'l1_ratio_grid': [0.0, 0.25, 0.5, 0.75, 1.0]
     }
+
 
     xgboost_params = {
         'n_estimators': 100,

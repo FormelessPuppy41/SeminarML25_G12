@@ -167,14 +167,13 @@ class ForecastRunner:
 
         return run_day_ahead_adaptive_elastic_net(
             df=self._df,
-            #flag_matrix_df=self._flag_matrix_df,
             target_column=self._target,
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,
             rolling_window_days=self._rolling_window_days,
             datetime_col=self._datetime_col,
             freq=self._freq,
-            param_grid=params
+            enet_params=params
         )
     
     def run_xgboost(self, input_params: Dict[str, Any]):

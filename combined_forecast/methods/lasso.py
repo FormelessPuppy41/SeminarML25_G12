@@ -29,14 +29,11 @@ def run_lasso(
         pd.DataFrame: The testing data with the predictions.
     """
     # Lasso is ElasticNet with no L2 penalty
-    lasso_params = {
-        'alpha': params.get('alpha', 1.0),
-        'l1_ratio': 1.0,  # Lasso is ElasticNet with no L2 penalty
-        'random_state': params.get('random_state', 42)
-    }
+    if not params:
+        raise ValueError("Lasso parameters must be provided.")
 
     # Run the ElasticNet model with l1_ratio = 1.0
-    return run_elastic_net(train, test, target, features, lasso_params)
+    return run_elastic_net(train, test, target, features, params)
 
 
 
@@ -71,9 +68,8 @@ def run_day_ahead_lasso(
     Returns:
         pd.DataFrame: Forecast results with columns ['forecast_time', 'target_time', 'prediction'].
     """
-    # Check if the parameters are provided, and set defaults if not. Enforce Lasso behavior.
-    lasso_params = lasso_params or {'alpha': 1.0}
-    lasso_params['l1_ratio'] = 1.0  # Enforce lasso behavior
+    if not lasso_params:
+        raise ValueError("Lasso parameters must be provided.")
 
     # Run the ElasticNet model
     return run_day_ahead_elastic_net(

@@ -1,14 +1,16 @@
 import numpy as np
 import pandas as pd
 
+from configuration import ModelSettings
+
 
 def apply_error_model(
-    alpha: np.ndarray,
-    k: np.ndarray,
-    hr: np.ndarray,
-    delta: np.ndarray,
-    epsilon: np.ndarray
-) -> np.ndarray:
+        alpha: np.ndarray,
+        k: np.ndarray,
+        hr: np.ndarray,
+        delta: np.ndarray,
+        epsilon: np.ndarray
+    ) -> np.ndarray:
     """
     Applies the base error model to produce forecasted values:
         forecast_i = HR_i + alpha_i * (K_i - HR_i) + delta_i + epsilon_i
@@ -37,3 +39,140 @@ def apply_error_model(
 
     # Final forecast
     return hr + error
+
+
+def run_forecasts1(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Forecasts HR using an error model based on:
+        - alpha: seasonal cosine function
+        - epsilon: noise from t-distribution
+        - delta: constant bias added when HR > 0
+    The structure and output match run_forecast2 for comparison.
+    """
+    df = df.copy()
+
+    # Ensure datetime
+    df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col])
+    df['day_of_year'] = df[ModelSettings.datetime_col].dt.dayofyear
+
+    # Seasonal alpha: varies with time of year
+    df['alpha'] = 1 + 0.2 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365)
+
+    # Constant delta
+    df['delta'] = 0.02
+
+    # t-distribution noise
+    df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05
+
+    # Only forecast where HR > 0
+    hr = df[ModelSettings.target].values
+    k = df['K'].values
+    alpha = df['alpha'].values
+    delta = df['delta'].values
+    epsilon = df['epsilon'].values
+
+    forecasted_value = np.full(len(df), np.nan)
+    hr_nonzero_mask = hr != 0
+
+    forecasted_value[hr_nonzero_mask] = apply_error_model(
+        alpha=alpha[hr_nonzero_mask],
+        k=k[hr_nonzero_mask],
+        hr=hr[hr_nonzero_mask],
+        delta=delta[hr_nonzero_mask],
+        epsilon=epsilon[hr_nonzero_mask]
+    )
+
+    # Format output same as run_forecast2
+    df['forecasted_value'] = forecasted_value
+    result = df[[ModelSettings.datetime_col, 'forecasted_value']].reset_index(drop=True)
+    return result.fillna(0)
+
+def run_forecasts2(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Forecasts HR using an error model based on:
+        - alpha: seasonal cosine function
+        - epsilon: noise from t-distribution
+        - delta: constant bias added when HR > 0
+    The structure and output match run_forecast2 for comparison.
+    """
+    df = df.copy()
+
+    # Ensure datetime
+    df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col])
+    df['day_of_year'] = df[ModelSettings.datetime_col].dt.dayofyear
+
+    # Seasonal alpha: varies with time of year
+    df['alpha'] = 1 + 0.2 * np.sin(2 * np.pi * (df['day_of_year'] - 172) / 365)
+
+    # Constant delta
+    df['delta'] = -0.02
+
+    # t-distribution noise
+    df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05
+
+    # Only forecast where HR > 0
+    hr = df[ModelSettings.target].values
+    k = df['K'].values
+    alpha = df['alpha'].values
+    delta = df['delta'].values
+    epsilon = df['epsilon'].values
+
+    forecasted_value = np.full(len(df), np.nan)
+    hr_nonzero_mask = hr != 0
+
+    forecasted_value[hr_nonzero_mask] = apply_error_model(
+        alpha=alpha[hr_nonzero_mask],
+        k=k[hr_nonzero_mask],
+        hr=hr[hr_nonzero_mask],
+        delta=delta[hr_nonzero_mask],
+        epsilon=epsilon[hr_nonzero_mask]
+    )
+
+    # Format output same as run_forecast2
+    df['forecasted_value'] = forecasted_value
+    result = df[[ModelSettings.datetime_col, 'forecasted_value']].reset_index(drop=True)
+    return result.fillna(0)
+
+def run_forecast3(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Forecasts HR using an error model based on:
+        - alpha: seasonal cosine function
+        - epsilon: noise from t-distribution
+        - delta: constant bias added when HR > 0
+    The structure and output match run_forecast2 for comparison.
+    """
+    df = df.copy()
+
+    # Ensure datetime
+    df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col])
+    df['day_of_year'] = df[ModelSettings.datetime_col].dt.dayofyear
+
+    # Seasonal alpha: varies with time of year
+    df['alpha'] = 1 + 0.2 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365)
+
+    # Constant delta
+    df['delta'] = 0.02
+
+    # t-distribution noise
+    df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05
+
+    # Only forecast where HR > 0
+    hr = df[ModelSettings.target].values
+    k = df['K'].values
+    alpha = df['alpha'].values
+    delta = df['delta'].values
+    epsilon = df['epsilon'].values
+    forecasted_value = np.full(len(df), np.nan)
+    hr_nonzero_mask = hr != 0
+    forecasted_value[hr_nonzero_mask] = apply_error_model(
+        alpha=alpha[hr_nonzero_mask],
+        k=k[hr_nonzero_mask],
+        hr=hr[hr_nonzero_mask],
+        delta=delta[hr_nonzero_mask],
+        epsilon=epsilon[hr_nonzero_mask]
+    )
+    # Format output same as run_forecast2
+    df['forecasted_value'] = forecasted_value
+    result = df[[ModelSettings.datetime_col, 'forecasted_value']].reset_index(drop=True)
+    return result.fillna(0)
+
