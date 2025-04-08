@@ -73,6 +73,15 @@ class ForecastController:
         # Initialize file names
         self._file_names = FileNames().model_result_files
 
+    def forecast_simple_average(self):
+        """
+        Run the simple average model and write the forecast to a CSV file.
+        """
+        simple_average_result, _ = self._time_forecaster(
+                lambda: self._forecast_runner.run_simple_average(),
+                forecast_name='Simple Average'
+            )
+        self._forecast_writer.write_forecast(forecast=simple_average_result, file_name=self._file_names.simple_average_forecast)
 
     def forecast_ridge(self):
         """

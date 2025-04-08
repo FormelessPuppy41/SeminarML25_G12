@@ -141,7 +141,7 @@ def run_day_ahead_elastic_net(
 
     # TODO: This should be done in the data preparation step.
     if datetime_col not in df.columns:
-        #print(df, flag_matrix_df)
+        print(df)
         raise ValueError(f"'{datetime_col}' not found in DataFrame.")
     
     df = df.copy()
@@ -153,7 +153,7 @@ def run_day_ahead_elastic_net(
 
     # Get unique forecast dates
     unique_dates = df[datetime_col].unique()
-    forecast_dates = [pd.Timestamp(d) for d in unique_dates if pd.Timestamp(d).hour == 9]
+    forecast_dates = [pd.Timestamp(d) for d in unique_dates if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)]
 
 
     # Iterate over each forecast date

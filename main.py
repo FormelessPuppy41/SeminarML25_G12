@@ -27,8 +27,11 @@ def run_models():
     # flag_matrix_df.rename(columns={'date': ModelSettings.datetime_col}, inplace=True)
     # print(flag_matrix_df.head())
 
-    df = DataLoader().load_input_data(file_names.input_files.solar_combined_data)
-    print(df.head())
+    df = DataLoader().load_input_data(file_names.input_files.combined_forecasts)
+    print(df.head(50))
+    df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
+    df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2017')]
+    #print(df.head())
 
     forecast_controller = ForecastController(
             df=df, 
@@ -41,7 +44,7 @@ def run_models():
             freq=model_settings.freq
         )
     
-    forecast_controller.forecast_ridge()
+    forecast_controller.forecast_simple_average()
 
 
 
@@ -52,7 +55,7 @@ def run_results(file_name: str):
 if __name__ == "__main__":
     #run_flag_matrix()
     run_models()
-    run_results(file_names.model_result_files.ridge_forecast)
+    run_results(file_names.model_result_files.simple_average_forecast)
     #run_models()
     #run_results(file_names.model_result_files.ridge_forecast)
 

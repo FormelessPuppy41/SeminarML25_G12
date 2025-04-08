@@ -176,7 +176,7 @@ def run_day_ahead_xgboost(
 
     # Get unique forecast dates
     unique_dates = df[datetime_col].unique()
-    forecast_dates = [pd.Timestamp(d) for d in unique_dates if pd.Timestamp(d).hour == 9]
+    forecast_dates = [pd.Timestamp(d) for d in unique_dates if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)]
 
 
     # Iterate over each forecast date

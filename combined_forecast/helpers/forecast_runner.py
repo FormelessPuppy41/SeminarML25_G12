@@ -4,7 +4,7 @@ Forecast combiner module
 # imports:
 import pandas as pd
 from typing import List, Dict, Any
-from combined_forecast.methods import run_day_ahead_adaptive_elastic_net, run_day_ahead_lasso, run_day_ahead_ridge, run_day_ahead_elastic_net, run_day_ahead_xgboost
+from combined_forecast.methods import run_day_ahead_simple_average, run_day_ahead_adaptive_elastic_net, run_day_ahead_lasso, run_day_ahead_ridge, run_day_ahead_elastic_net, run_day_ahead_xgboost
 
 class ForecastRunner:
     """
@@ -47,6 +47,21 @@ class ForecastRunner:
         self._datetime_col = datetime_col
         self._freq = freq
 
+    def run_simple_average(self):
+        """
+        This function runs the simple average model.
+
+        Returns:
+            pd.DataFrame: The testing data with the predictions.
+        """
+        return run_day_ahead_simple_average(
+            df=self._df, 
+            target_column=self._target,  
+            forecast_horizon=self._forecast_horizon,
+            datetime_col=self._datetime_col,
+            freq=self._freq
+        )
+    
     def run_ridge(self, input_params: Dict[str, Any]):
         """
         This function runs the ridge regression model.

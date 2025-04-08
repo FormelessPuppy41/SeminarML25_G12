@@ -68,8 +68,8 @@ class ModelSettings:
         - freq (str): The frequency of the data.
     """
     target = 'HR'
-    features = ["K", "A1", "A2", "A3", "A4", "A5", "A6"]
-    forecast_horizon = 24
+    features = ["A1", "A2", "A3", "A4", "A5", "A6"]
+    forecast_horizon = 96
     rolling_window_days = 165
     datetime_col = 'datetime'
     freq = '15min'
@@ -107,11 +107,14 @@ class FileNames:
         Class to store model result file names.
 
         Attributes:
+            - simple_average_forecast (str): The Simple Average forecast file.
             - ridge_forecast (str): The Ridge forecast file.
             - lasso_forecast (str): The Lasso forecast file.
             - elastic_net_forecast (str): The Elastic Net forecast file.
             - adaptive_elastic_net_forecast (str): The Adaptive Elastic Net forecast file.
+            - xgboost_forecast (str): The XGBoost forecast file.
         """
+        simple_average_forecast = 'simple_average_forecast.csv'
         ridge_forecast = 'ridge_forecast.csv'
         lasso_forecast = 'lasso_forecast.csv'
         elastic_net_forecast = 'elastic_net_forecast.csv'

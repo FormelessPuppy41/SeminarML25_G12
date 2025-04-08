@@ -1,4 +1,5 @@
 
+from .simple_average import run_day_ahead_simple_average
 from .ridge import run_day_ahead_ridge
 from .lasso import run_day_ahead_lasso
 from .elastic_net import run_day_ahead_elastic_net
