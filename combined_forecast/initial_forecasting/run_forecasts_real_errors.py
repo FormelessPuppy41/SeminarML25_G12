@@ -13,6 +13,9 @@ from combined_forecast.initial_forecasting.forecasts_real_errors import (
     run_forecast4,
     run_forecast5,
     run_forecast6,
+    run_forecast7,
+    run_forecast8,
+    run_forecast9,
 )
 
 file_names = FileNames()
@@ -39,6 +42,9 @@ def run_error_model_forecasts():
     df4 = run_forecast4(df)
     df5 = run_forecast5(df)
     df6 = run_forecast6(df)
+    #df7 = run_forecast7(df)
+    #df8 = run_forecast8(df)
+    #df9 = run_forecast9(df)
 
     combined_forecast = _combine_forecasts(df, [df1, df2, df3, df4, df5, df6])
     combined_forecast.to_csv('data/data_files/input_files/error_model_combined_forecasts.csv', index=False)
@@ -122,14 +128,61 @@ def evaluate_and_plot_forecasts(filepath: str):
         plt.grid(axis='y', linestyle='--', alpha=0.5)
         plt.show()
 
+    def plot_mse_per_month(df, forecast_cols):
+        """
+        For each year in the DataFrame, generate a separate bar chart that shows the
+        sum of squared errors (SSE) per month for each forecast method.
+
+        Parameters:
+        df (pandas.DataFrame): DataFrame containing the actual target and forecast values.
+                                It must have a datetime column defined by ModelSettings.datetime_col,
+                                and a 'year' column.
+        forecast_cols (list): List of forecast column names.
+        """
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        import pandas as pd
+        import numpy as np
+
+        # Ensure that the month column exists.
+        if 'month' not in df.columns:
+            df['month'] = df[ModelSettings.datetime_col].dt.month
+
+        # Iterate through each year to create separate plots.
+        for year in sorted(df['year'].unique()):
+            df_year = df[df['year'] == year]
+            mse_data = []
+            # For each month of the current year.
+            for month in sorted(df_year['month'].unique()):
+                df_month = df_year[df_year['month'] == month]
+                # For each forecast method, calculate the sum of squared errors.
+                for col in forecast_cols:
+                    sse = np.sum((df_month[col] - df_month[ModelSettings.target]) ** 2)
+                    mse_data.append({'Month': month, 'Forecast': col, 'SSE': sse})
+            mse_month_df = pd.DataFrame(mse_data)
+            
+            # Create a bar chart for the current year.
+            plt.figure(figsize=(12, 6))
+            sns.barplot(data=mse_month_df, x='Month', y='SSE', hue='Forecast', palette='tab10')
+            plt.title(f'Sum of Squared Errors per Month for Year {year}', fontsize=16)
+            plt.xlabel('Month')
+            plt.ylabel('Sum of Squared Errors (SSE)')
+            plt.legend(title='Forecast', bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.tight_layout()
+            plt.grid(axis='y', linestyle='--', alpha=0.5)
+            plt.show()
+
+
+
     df = load_data(filepath)
     forecast_cols = [col for col in df.columns if col.startswith('A')]
     forecast_cols = forecast_cols + ['K']
 
     print_error_metrics(df, forecast_cols)
-    plot_forecasts_per_year(df, forecast_cols)
+    #plot_forecasts_per_year(df, forecast_cols)
     plot_correlation_heatmap(df, forecast_cols)
     plot_mse_per_year(df, forecast_cols)
+    plot_mse_per_month(df, forecast_cols)
 
 
 if __name__ == "__main__":

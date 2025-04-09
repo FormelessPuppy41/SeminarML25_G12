@@ -2,8 +2,9 @@
 import pandas as pd
 import numpy as np
 
-from ...configuration import ModelSettings
+from configuration import ModelSettings
 
+# python -m combined_forecast.initial_forecasting.run_forecasts
 
 # df has the following columns:
 #     - datetime (datetime)
@@ -117,49 +118,53 @@ def run_forecast3(
 
 def run_forecast4(
     df: pd.DataFrame,
-    alpha: float = 0,
-    beta: float = 0.2,
+    alpha: float = 0.5,
+    beta: float = 1,
     t_peak: int = 172,
-    sigma: float = 400
+    sigma_primary: float = 800,
+    sigma_secondary: float = 600,
+    secondary_weight: float = 0.3
 ) -> pd.DataFrame:
     """
-    Forecasts the HR value using seasonally-scaled multiplicative Gaussian noise.
-    
-    The noise is defined as:
-        noise ~ N(alpha, beta) * exp(-((day_of_year - t_peak)^2) / (2 * sigma))
-    
-    This noise acts as a multiplicative scaling factor applied to the HR value:
-        forecast = HR * (1 + noise)
-    
-    Forecasting is only applied when HR ≠ 0.
+    Forecasts the HR value using dual seasonal-scaled multiplicative Gaussian noise.
+
+    Combines:
+    - A primary bell curve (low noise near t_peak, high noise far from it).
+    - A secondary inverted bell (adds mild noise in winter).
 
     Args:
-        df (pd.DataFrame): DataFrame with ModelSettings.datetime_col and ModelSettings.target columns.
-        alpha (float): Mean of the Gaussian noise (typically 0 for centered variation). Default is 0.
-        beta (float): Standard deviation of the Gaussian noise. Default is 0.2.
-        t_peak (int): Day of year with highest seasonal solar yield (e.g., 172 for June 21). Default is 172.
-        sigma (float): Spread of the seasonal scaling envelope. Default is 400.
-
-    Returns:
-        pd.DataFrame: Forecasted DataFrame with [ModelSettings.datetime_col, 'forecasted_value'].
+        alpha: Mean of the Gaussian noise.
+        beta: Standard deviation of the Gaussian noise.
+        t_peak: Peak day of year with minimal noise (e.g. June 21).
+        sigma_primary: Spread of main bell curve.
+        sigma_secondary: Spread of inverted bell.
+        secondary_weight: Scaling weight for the inverted seasonal component.
     """
     forecast_df = df.copy()
 
-    # Ensure datetime column is datetime type
     if not np.issubdtype(forecast_df[ModelSettings.datetime_col].dtype, np.datetime64):
         forecast_df[ModelSettings.datetime_col] = pd.to_datetime(forecast_df[ModelSettings.datetime_col])
 
-    # Get day of year (1–366)
     day_of_year = forecast_df[ModelSettings.datetime_col].dt.dayofyear
-
-    # Mask for non-zero HR values
     hr_nonzero = forecast_df[ModelSettings.target] != 0
     valid_days = day_of_year[hr_nonzero]
 
-    # Seasonal scaling envelope (like a bell curve centered on t_peak)
-    seasonal_scale = np.exp(-((valid_days - t_peak) ** 2) / (2 * sigma))
+    # Symmetric seasonal distance from peak
+    distance = np.minimum(
+        np.abs(valid_days - t_peak),
+        365 - np.abs(valid_days - t_peak)
+    )
 
-    # Generate scaled noise (multiplicative)
+    # Main bell curve: minimal noise at t_peak
+    scale_primary = np.exp(-(distance ** 2) / (2 * sigma_primary))
+
+    # Inverted bell curve: added noise far from t_peak
+    scale_secondary = 1 - np.exp(-(distance ** 2) / (2 * sigma_secondary))
+
+    # Combined seasonal scaling
+    seasonal_scale = scale_primary + secondary_weight * scale_secondary
+
+    # Generate scaled noise
     base_noise = np.random.normal(loc=alpha, scale=beta, size=len(seasonal_scale))
     scaled_noise = base_noise * seasonal_scale
 
@@ -168,7 +173,7 @@ def run_forecast4(
 
     forecast_df['forecasted_value'] = forecasted_value
     forecast_df = forecast_df[[ModelSettings.datetime_col, 'forecasted_value']].reset_index(drop=True)
-    return forecast_df.fillna(0)  # Fill NaN values with 0 for forecasted_value
+    return forecast_df.fillna(0)
 
 
 def run_forecast5(
