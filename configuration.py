@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+import numpy as np
+
 
 @dataclass
 class ModelParameters:
@@ -21,23 +23,25 @@ class ModelParameters:
             - n_jobs: number of parallel jobs 
             - verbose: verbosity level 
     """
+    # np.linspace(0.1, 1, 10)
+    # [0.1, 1.0, 10.0]
     ridge_params = {
-        'alpha_grid': [0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
+        'alpha_grid': np.linspace(0.1, 2, 10),  # drop plain 'alpha' if grid is used
         'l1_ratio': 0.0  # enforce ridge behavior
     }
 
     lasso_params = {
-        'alpha_grid': [0.1, 1.0, 10.0],
+        'alpha_grid': [0.5, 1.5], #np.linspace(0.1, 2, 10),
         'l1_ratio': 1.0  # enforce lasso behavior
     }
 
     elastic_net_params = {
-        'alpha_grid': [0.1, 1.0, 10.0],
+        'alpha_grid': np.linspace(0.1, 2, 10),
         'l1_ratio': 0.5
     }
 
     adaptive_elastic_net_params = {
-        'alpha_grid': [0.1, 1.0, 10.0],
+        'alpha_grid': np.linspace(0.1, 2, 10),
         'l1_ratio_grid': [0.0, 0.25, 0.5, 0.75, 1.0]
     }
 

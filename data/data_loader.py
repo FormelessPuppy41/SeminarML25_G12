@@ -25,7 +25,7 @@ class DataLoader:
             pd.DataFrame: The input data.
         """
         path = f'{self.path}/input_files/{file_name}'
-        return self._load_data(path)
+        return self._load_data(path, True)
     
     def load_output_data(self, file_name: str):
         """

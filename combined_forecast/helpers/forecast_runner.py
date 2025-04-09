@@ -74,9 +74,6 @@ class ForecastRunner:
         Returns:
             pd.DataFrame: The testing data with the predictions.
         """
-        params = {}
-        params['alpha'] = input_params.get('alpha', 1.0)
-
         return run_day_ahead_ridge(
             df=self._df, 
             #flag_matrix_df=self._flag_matrix_df,
@@ -84,7 +81,7 @@ class ForecastRunner:
             feature_columns=self._features, 
             forecast_horizon=self._forecast_horizon,
             rolling_window_days=self._rolling_window_days,
-            ridge_params=params,
+            ridge_params=input_params,
             datetime_col=self._datetime_col,
             freq=self._freq
         )
@@ -100,9 +97,6 @@ class ForecastRunner:
         Returns:
             pd.DataFrame: The testing data with the predictions.
         """
-        params = {}
-        params['alpha'] = input_params.get('alpha', 1.0)
-
         return run_day_ahead_lasso(
             df=self._df, 
             #flag_matrix_df=self._flag_matrix_df,
@@ -110,7 +104,7 @@ class ForecastRunner:
             feature_columns=self._features, 
             forecast_horizon=self._forecast_horizon,
             rolling_window_days=self._rolling_window_days,
-            lasso_params=params,
+            lasso_params=input_params,
             datetime_col=self._datetime_col,
             freq=self._freq
         )
@@ -127,10 +121,6 @@ class ForecastRunner:
         Returns:
             pd.DataFrame: The testing data with the predictions.
         """
-        params = {}
-        params['alpha'] = input_params.get('alpha', 1.0)
-        params['l1_ratio'] = input_params.get('l1_ratio', 0.5)
-
         return run_day_ahead_elastic_net(
             df=self._df,
             #flag_matrix_df=self._flag_matrix_df,
@@ -138,7 +128,7 @@ class ForecastRunner:
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,
             rolling_window_days=self._rolling_window_days,
-            enet_params=params,
+            enet_params=input_params,
             datetime_col=self._datetime_col,
             freq=self._freq
         )
@@ -158,13 +148,6 @@ class ForecastRunner:
         Returns:
             pd.DataFrame: The testing data with the predictions.
         """
-        params = {}
-        params['elasticnet__alpha'] = input_params.get('elasticnet__alpha', [0.1, 1.0, 10.0])
-        params['elasticnet__l1_ratio'] = input_params.get('elasticnet__l1_ratio', [0.0, 0.5, 1.0])
-        params['cv'] = input_params.get('cv', 5)
-        params['n_jobs'] = input_params.get('n_jobs', -1)
-        params['verbose'] = input_params.get('verbose', 0)
-
         return run_day_ahead_adaptive_elastic_net(
             df=self._df,
             target_column=self._target,
@@ -173,7 +156,7 @@ class ForecastRunner:
             rolling_window_days=self._rolling_window_days,
             datetime_col=self._datetime_col,
             freq=self._freq,
-            enet_params=params
+            enet_params=input_params
         )
     
     def run_xgboost(self, input_params: Dict[str, Any]):
@@ -191,13 +174,6 @@ class ForecastRunner:
         Returns:
             pd.DataFrame: The testing data with the predictions.
         """
-        params = {}
-        params['n_estimators'] = input_params.get('n_estimators', 100)
-        params['max_depth'] = input_params.get('max_depth', 3)
-        params['learning_rate'] = input_params.get('learning_rate', 0.1)
-        params['random_state'] = input_params.get('random_state', 42)
-        params['objective'] = input_params.get('objective', 'reg:squarederror')
-
         return run_day_ahead_xgboost(
             df=self._df,
             #flag_matrix_df=self._flag_matrix_df,
@@ -205,7 +181,7 @@ class ForecastRunner:
             feature_columns=self._features,
             forecast_horizon=self._forecast_horizon,
             rolling_window_days=self._rolling_window_days,
-            xgb_params=params,
+            xgb_params=input_params,
             datetime_col=self._datetime_col,
             freq=self._freq
         )
