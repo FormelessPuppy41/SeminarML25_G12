@@ -219,6 +219,7 @@ def evaluate_and_plot_forecasts(filepath: str):
     # for key, value in result.items():
     #     print(f"{key}: {value:.2f}%")
     
+
     forecast_cols = [col for col in df.columns if col.startswith('A')]
     forecast_cols = forecast_cols + ['K']
 
