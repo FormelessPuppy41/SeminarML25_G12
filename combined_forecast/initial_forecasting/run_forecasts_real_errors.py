@@ -23,9 +23,15 @@ file_names = FileNames()
 
 def _combine_forecasts(df: pd.DataFrame, forecast_dfs: list[pd.DataFrame]) -> pd.DataFrame:
     combined = df[[ModelSettings.datetime_col, ModelSettings.target, 'K']].copy()
+    
     for i, forecast_df in enumerate(forecast_dfs):
         forecast_df_renamed = forecast_df.rename(columns={'forecasted_value': f'A{i+1}'})
         combined = combined.merge(forecast_df_renamed, on=ModelSettings.datetime_col, how='left')
+    
+    # Set all negative forecast values to 0
+    forecast_cols = [col for col in combined.columns if col.startswith('A')]
+    combined[forecast_cols] = combined[forecast_cols].clip(lower=0)
+
     return combined
 
 
@@ -172,9 +178,47 @@ def evaluate_and_plot_forecasts(filepath: str):
             plt.grid(axis='y', linestyle='--', alpha=0.5)
             plt.show()
 
+    def analyze_forecast_agreement(df: pd.DataFrame) -> dict:
+        """
+        Calculates the percentage of rows where all forecasts (A1–A6) are:
+        - all above the actual HR
+        - all below the actual HR
+        Rows where HR == 0 and all forecasts are 0 are excluded.
+
+        Returns:
+            dict with percentages of each condition (out of valid rows).
+        """
+        forecast_cols = [col for col in df.columns if col.startswith('A')]
+
+        # Exclude rows where HR == 0 and all forecasts == 0
+        is_all_forecast_zero = (df[forecast_cols] == 0).all(axis=1)
+        is_hr_zero = df[ModelSettings.target] == 0
+        exclude_mask = is_hr_zero & is_all_forecast_zero
+        df_valid = df[~exclude_mask]
+
+        # Differences between forecasts and actual HR
+        diff = df_valid[forecast_cols].subtract(df_valid[ModelSettings.target], axis=0)
+
+        all_above = (diff > 0).all(axis=1)
+        all_below = (diff < 0).all(axis=1)
+        mixed = ~(all_above | all_below)
+
+        return {
+            'all_above_hr (%)': 100 * all_above.mean(),
+            'all_below_hr (%)': 100 * all_below.mean(),
+            'mixed_direction (%)': 100 * mixed.mean(),
+            'rows_analyzed': len(df_valid),
+            'rows_excluded (hr=0 & forecasts=0)': int(exclude_mask.sum())
+        }
+
 
 
     df = load_data(filepath)
+    # result = analyze_forecast_agreement(df)
+    # print("\nForecast Agreement Analysis:")
+    # for key, value in result.items():
+    #     print(f"{key}: {value:.2f}%")
+    
     forecast_cols = [col for col in df.columns if col.startswith('A')]
     forecast_cols = forecast_cols + ['K']
 
