@@ -120,6 +120,8 @@ class FileNames:
         lasso_forecast = 'lasso_forecast.csv'
         elastic_net_forecast = 'elastic_net_forecast.csv'
         adaptive_elastic_net_forecast = 'adaptive_elastic_net_forecast.csv'
+        elnet_forecast_berend = 'solar_forecast_elnet_berend.csv'
+        ridge_forecast_berend = 'solar_forecast_ridge_berend.csv'
         xgboost_forecast = 'xgboost_forecast.csv'
 
     @dataclass
