@@ -234,8 +234,9 @@ def evaluate_and_plot_forecasts(filepath: str):
         import matplotlib.pyplot as plt
 
         # Standardize forecast values: subtract the mean and divide by std deviation
-        forecasts = df[forecast_cols]
+        forecasts = df[forecast_cols].copy()
         # Remove forecasts where hr is zero.
+        forecasts = forecasts.dropna()
         forecasts = forecasts[df[ModelSettings.target] != 0]
         forecasts_standardized = (forecasts - forecasts.mean()) / forecasts.std(ddof=0)
         
@@ -261,6 +262,61 @@ def evaluate_and_plot_forecasts(filepath: str):
         
         return explained_variance
         
+    def evaluate_monthly_forecaster_rank(
+        df: pd.DataFrame, 
+        forecast_cols: list[str], 
+        target_col: str, 
+        datetime_col: str
+    ) -> pd.DataFrame:
+        """
+        For each month in the provided DataFrame, compute the mean squared error (MSE)
+        for each forecast method (provided in `forecast_cols`) compared to `target_col`. 
+        Then count the number of months in which each method had the lowest MSE and 
+        the number of months with the highest MSE.
+        
+        Parameters:
+            df (pd.DataFrame): DataFrame with forecast and actual data.
+            forecast_cols (list[str]): List of column names for forecasts.
+            target_col (str): Name of the target column (e.g. HR).
+            datetime_col (str): Name of the datetime column.
+            
+        Returns:
+            pd.DataFrame: DataFrame with one row per forecast method and columns
+                        'Forecast', 'lowest_count', and 'highest_count'.
+        """
+        # Ensure that the datetime column is in datetime format
+        df[datetime_col] = pd.to_datetime(df[datetime_col])
+        # Create a period column (year-month) for grouping
+        df['year_month'] = df[datetime_col].dt.to_period('M')
+        
+        # Initialize dictionary for counting how often each forecaster gets min and max MSE per month
+        results = {col: {'lowest_count': 0, 'highest_count': 0} for col in forecast_cols}
+        
+        # Group by year-month and compute MSE for each forecast method
+        for year_month, group in df.groupby('year_month'):
+            mse_values = {}
+            for col in forecast_cols:
+                # Calculate MSE for this forecast in the current month group
+                mse = np.mean((group[col] - group[target_col]) ** 2)
+                mse_values[col] = mse
+
+            # Find the minimum and maximum MSE values in this month
+            min_val = min(mse_values.values())
+            max_val = max(mse_values.values())
+
+            # Increment count for any forecaster that matches the min or max
+            # (if there is a tie, count all tied forecasters)
+            for col, mse in mse_values.items():
+                if np.isclose(mse, min_val):
+                    results[col]['lowest_count'] += 1
+                if np.isclose(mse, max_val):
+                    results[col]['highest_count'] += 1
+
+        # Convert the results dictionary to a DataFrame for easier display/analysis
+        results_df = pd.DataFrame(results).T.reset_index().rename(columns={'index': 'Forecast'})
+        results_df.sort_values('Forecast', inplace=True)
+        print(results_df)
+        return results_df
 
 
 
@@ -280,7 +336,8 @@ def evaluate_and_plot_forecasts(filepath: str):
     #plot_forecasts_per_year(df, forecast_cols)
     plot_correlation_heatmap(df, forecast_cols)
     plot_mse_per_year(df, forecast_cols)
-    #plot_mse_per_month(df, forecast_cols)
+    plot_mse_per_month(df, forecast_cols)
+    evaluate_monthly_forecaster_rank(df, forecast_cols, ModelSettings.target, ModelSettings.datetime_col)
 
 
 if __name__ == "__main__":

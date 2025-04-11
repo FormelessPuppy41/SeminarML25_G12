@@ -27,7 +27,7 @@ def run_models():
     # flag_matrix_df.rename(columns={'date': ModelSettings.datetime_col}, inplace=True)
     # print(flag_matrix_df.head())
 
-    df = DataLoader().load_input_data(file_names.input_files.combined_forecasts)
+    df = DataLoader().load_input_data(file_names.input_files.real_error_data)
     print(df)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2018')]

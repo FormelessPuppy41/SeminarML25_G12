@@ -6,13 +6,13 @@ from configuration import ModelSettings
 
 # Params for random noise generation. 
 mu = -0.1
-sigma = 1.0
+sigma = 0.3
 mu2 = 0
-sigma2 = 1.0
-fourier_d = 100
-fourier_d_sigma = 10
-fourier_gamma = 20000.0
-fourier_gamma_sigma = 20000.0
+sigma2 = 0.3
+fourier_d = 10
+fourier_d_sigma = 1
+fourier_gamma = 200.0
+fourier_gamma_sigma = 200.0
 
 def apply_error_model(
         alpha: np.ndarray,
@@ -66,6 +66,7 @@ def get_random_fourier_features(day_of_week: pd.Series, D: int = fourier_d, gamm
     """
     D = round(D)
     gamma = round(gamma)
+
     x_norm = day_of_week.values / 365.0
     # Generate D random weights from a normal distribution scaled by sqrt(2*gamma)
     w = np.random.normal(scale=np.sqrt(2 * gamma), size=D)
@@ -75,6 +76,7 @@ def get_random_fourier_features(day_of_week: pd.Series, D: int = fourier_d, gamm
     z = np.sqrt(2 / D) * np.cos(np.outer(x_norm, w) + b)
     #return np.zeros(day_of_week.shape)
 
+    return z.mean(axis=1)
     weights = np.random.uniform(-0.2, 0.2, size=z.shape[1])
     return z @ weights  # result is a (n_samples,) array
 
@@ -92,32 +94,44 @@ def run_forecast1(df: pd.DataFrame) -> pd.DataFrame:
 
     Forecasts HR using an error model based on:
         - alpha: seasonal cosine function
-        - epsilon: noise from t-distribution
+        - epsilon: noise from a t-distribution, scaled seasonally so that forecasts are less good (more variable) in the summer and better (less variable) in the winter.
         - delta: constant bias added when HR > 0
     The structure and output match run_forecast2 for comparison.
     """
     df = df.copy()
 
-    # Ensure datetime
+    # Ensure datetime is set correctly.
     df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col])
     df['day_of_year'] = df[ModelSettings.datetime_col].dt.dayofyear
 
-    # Seasonal alpha: varies with time of year
+    # Seasonal alpha: varies with time of year.
     df['alpha'] = (
-        1.2
-        - 0.4 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365)
-        + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
+        1.0
+        - 0.05 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365)
+        + 0.25 * get_random_fourier_features(
+            df['day_of_year'],
+            np.random.normal(fourier_d, fourier_d_sigma),
+            np.random.normal(fourier_gamma, fourier_gamma_sigma)
+        )
         + np.random.normal(mu, sigma, len(df))
     )
 
-    # Constant delta
-    df['delta'] = 0.02 * np.sin(2 * np.pi * df['day_of_year'] / 365) + np.random.normal(mu2, sigma2, len(df))
+    # Constant delta (with seasonal variation and noise).
+    df['delta'] = (
+        0.005 * np.sin(2 * np.pi * df['day_of_year'] / 365)
+        + np.random.normal(mu2, sigma2, len(df))
+    )
 
+    # Seasonal error multiplier to adjust noise:
+    # - In summer (cosine = 1): multiplier becomes 1 + error_amplitude.
+    # - In winter (cosine = -1): multiplier becomes 1 - error_amplitude.
+    error_amplitude = 0.2  # Adjust this value to change the forecast variability.
+    df['error_multiplier'] = 1.0 + error_amplitude * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365)
 
-    # t-distribution noise
-    df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05
+    # t-distribution noise scaled by the seasonal error multiplier.
+    df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05 * df['error_multiplier']
 
-    # Only forecast where HR > 0
+    # Only forecast where HR > 0.
     hr = df[ModelSettings.target].values
     k = df['K'].values
     alpha = df['alpha'].values
@@ -135,10 +149,12 @@ def run_forecast1(df: pd.DataFrame) -> pd.DataFrame:
         epsilon=epsilon[hr_nonzero_mask]
     )
 
-    # Format output same as run_forecast2
+    # Format output to match run_forecast2.
     df['forecasted_value'] = forecasted_value
     result = df[[ModelSettings.datetime_col, 'forecasted_value']].reset_index(drop=True)
     return result.fillna(0)
+
+
 
 def run_forecast2(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -146,33 +162,46 @@ def run_forecast2(df: pd.DataFrame) -> pd.DataFrame:
 
     Forecasts HR using an error model based on:
         - alpha: seasonal cosine function
-        - epsilon: noise from t-distribution
+        - epsilon: noise from a t-distribution, now scaled so that forecasts are a bit worse in winter and a bit better in summer.
         - delta: constant bias added when HR > 0
     The structure and output match run_forecast2 for comparison.
     """
     df = df.copy()
 
-    # Ensure datetime
+    # Ensure datetime is correctly interpreted.
     df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col])
     df['day_of_year'] = df[ModelSettings.datetime_col].dt.dayofyear
 
-    # Seasonal alpha: varies with time of year
+    # Seasonal alpha: varies with time of year.
     df['alpha'] = (
-        0.8 
-        + 0.4 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365) 
-        + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
+        1.0 
+        + 0.05 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365) 
+        + 0.25 * get_random_fourier_features(
+            df['day_of_year'], 
+            np.random.normal(fourier_d, fourier_d_sigma), 
+            np.random.normal(fourier_gamma, fourier_gamma_sigma)
+        )
         + np.random.normal(mu, sigma, len(df))
     )
 
+    # Constant delta, with a small seasonal variation.
+    df['delta'] = (
+        -0.005 * np.sin(2 * np.pi * df['day_of_year'] / 365)
+        + np.random.normal(mu2, sigma2, len(df))
+    )
 
-    # Constant delta
-    df['delta'] = -0.03 * np.sin(2 * np.pi * df['day_of_year'] / 365) + np.random.normal(mu2, sigma2, len(df))
+    # Define a seasonal error multiplier.
+    # Here, we want:
+    #   - Lower noise (better forecasts) in the summer: multiplier < 1.
+    #   - Higher noise (worse forecasts) in the winter: multiplier > 1.
+    # Using a cosine function inverted relative to the one in run_forecast1:
+    error_amplitude = 0.2  # This gives a 20% decrease in summer and a 20% increase in winter.
+    df['error_multiplier'] = 1.0 - error_amplitude * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365)
 
+    # t-distribution noise, scaled seasonally.
+    df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05 * df['error_multiplier']
 
-    # t-distribution noise
-    df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05
-
-    # Only forecast where HR > 0
+    # Only forecast where HR > 0.
     hr = df[ModelSettings.target].values
     k = df['K'].values
     alpha = df['alpha'].values
@@ -190,10 +219,11 @@ def run_forecast2(df: pd.DataFrame) -> pd.DataFrame:
         epsilon=epsilon[hr_nonzero_mask]
     )
 
-    # Format output same as run_forecast2
+    # Format output same as run_forecast2.
     df['forecasted_value'] = forecasted_value
     result = df[[ModelSettings.datetime_col, 'forecasted_value']].reset_index(drop=True)
     return result.fillna(0)
+
 
 def run_forecast3(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -216,8 +246,8 @@ def run_forecast3(df: pd.DataFrame) -> pd.DataFrame:
     cloud_index = np.clip(cloud_index, -1, 1) 
     df['alpha'] = (
         1 
-        + 0.5 * cloud_index 
-        + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
+        + 0.3 * cloud_index 
+        + 0.15 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     )
     
@@ -266,14 +296,14 @@ def run_forecast4(df: pd.DataFrame) -> pd.DataFrame:
     # Rolling HR volatility (3 days ~ 288 steps of 15min)
     rolling_std = df[ModelSettings.target].rolling(window=288, min_periods=1).std().fillna(0)
     #rolling_std.hist()
-    rolling_std = np.clip(rolling_std, 0, 2500)  # clip to avoid extreme values
+    #rolling_std = np.clip(rolling_std, 0, 2500)  # clip to avoid extreme values
     #rolling_std = np.clip(rolling_std, 0, 2500)  # clip to avoid extreme values
 
     # Normalize std to keep alpha in reasonable range (assume std in [0, 0.3])
     df['alpha'] = (
         1.0 
-        + 0.00010 * rolling_std 
-        + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
+        + 0.000010 * rolling_std 
+        + 0.15 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     ) # scaling factor to exaggerate effect slightly
     
@@ -323,7 +353,7 @@ def run_forecast5(df: pd.DataFrame) -> pd.DataFrame:
     # Constant alpha
     df['alpha'] = (
         1.0 
-        + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
+        + 0.15 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     )
 
@@ -371,13 +401,13 @@ def run_forecast6(df: pd.DataFrame) -> pd.DataFrame:
 
     # Alpha: reduce trust when previous forecast error was high
     df['alpha'] = (
-        1.0 
+        1.05 
         + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     ) # could exceed 1.0 or drop below 0.5 depending on error
     
     # Delta: oppose the direction of previous forecast residual
-    df['delta'] = -0.04  + np.random.normal(mu2, sigma2, len(df))
+    df['delta'] = -0.01  + np.random.normal(mu2, sigma2, len(df))
     
     # t-distribution noise
     df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05

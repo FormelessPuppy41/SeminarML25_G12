@@ -90,6 +90,7 @@ class FileNames:
         solar_combined_data = 'SolarDataCombined.csv'
         combined_forecasts = 'combined_forecasts.csv'
         flag_matrix = 'flag_matrix.csv'
+        real_error_data = 'error_model_combined_forecasts.csv'
 
     @dataclass
     class OutputFiles:
