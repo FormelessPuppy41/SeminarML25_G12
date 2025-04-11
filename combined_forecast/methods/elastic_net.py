@@ -28,7 +28,8 @@ def run_elastic_net(
     test: pd.DataFrame,
     target: str,
     features: List[str],
-    params: Dict[str, Any]
+    params: Dict[str, Any],
+    l1_grid: bool = False
 ):
     """
     Run an Elastic Net regression model on test data using training data.
@@ -55,13 +56,19 @@ def run_elastic_net(
 
     if 'alpha_grid' in local_params:
         alpha_grid = local_params.pop('alpha_grid')
-        l1_ratio_grid = local_params.pop('l1_ratio_grid', [local_params.get('l1_ratio', 0.5)])
+        l1_ratio_grid = local_params.pop('l1_ratio_grid')
         
-        base_params = {
-            'alpha': alpha_grid[0],
-            'l1_ratio': l1_ratio_grid[0],
-            'random_state': local_params.get('random_state', 42)
-        }
+        if l1_grid:
+            base_params = {
+                'alpha': alpha_grid[0],
+                'random_state': local_params.get('random_state', 42)
+            }
+        else:
+            base_params = {
+                'alpha': alpha_grid[0],
+                'l1_ratio': l1_ratio_grid[0],
+                'random_state': local_params.get('random_state', 42)
+            }
         model = get_model_from_params(base_params)
         step_name = model.steps[-1][0]
         estimator_class = type(model.named_steps[step_name])
@@ -72,8 +79,9 @@ def run_elastic_net(
         }
 
         # Only include l1_ratio if the model supports it
-        if estimator_class is ElasticNet:
+        if l1_grid and hasattr(model.named_steps[step_name], 'l1_ratio'):
             param_grid[f"{step_name}__l1_ratio"] = l1_ratio_grid
+
 
 
         tscv = TimeSeriesSplit(n_splits=5)
@@ -81,12 +89,12 @@ def run_elastic_net(
         gs.fit(train[features], train[target])
 
         best_model = gs.best_estimator_
-        step_name = model.steps[-1][0]
+
         predictions = best_model.predict(test[features])
         best_alpha = gs.best_params_[f'{step_name}__alpha']
         best_l1_ratio = (
             gs.best_params_.get(f'{step_name}__l1_ratio')
-            if estimator_class is ElasticNet else None
+            if l1_grid and hasattr(model.named_steps[step_name], 'l1_ratio') else None
         )
 
         coefs = best_model.named_steps[step_name].coef_
@@ -191,7 +199,8 @@ def forecast_single_date(
     rolling_window_days: int,
     enet_params: dict,
     datetime_col: str,
-    freq: str
+    freq: str,
+    l1_grid: bool = False
 ):
     """
     Processes the forecast for a single date.
@@ -217,7 +226,7 @@ def forecast_single_date(
             continue
         # Call run_elastic_net (which already handles grid search / fixed params)
         pred_df, best_alpha, best_l1_ratio, coefs = run_elastic_net(
-            train_df, row_df, target_column, feature_columns, enet_params
+            train_df, row_df, target_column, feature_columns, enet_params, l1_grid
         )
         forecast_results_single.append({
             'target_time': ts,
@@ -238,7 +247,8 @@ def run_day_ahead_elastic_net(
         rolling_window_days: int = 165, 
         enet_params: Dict[str, Any] = None, 
         datetime_col: str = 'datetime', 
-        freq: str = '15min'
+        freq: str = '15min',
+        l1_grid: bool = False
     ) -> pd.DataFrame:
     """
     Generate forecasts at 09:00 AM each morning for the next day (24 hourly forecasts).
@@ -285,7 +295,8 @@ def run_day_ahead_elastic_net(
                 rolling_window_days,
                 enet_params,
                 datetime_col,
-                freq
+                freq,
+                l1_grid
             ): forecast_date for forecast_date in forecast_dates[rolling_window_days:]
         }
         

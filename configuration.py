@@ -42,7 +42,7 @@ class ModelParameters:
 
     adaptive_elastic_net_params = {
         'alpha_grid': np.linspace(0.1, 2, 10),
-        'l1_ratio_grid': [0.0, 0.25, 0.5, 0.75, 1.0]
+        'l1_ratio_grid': [0.0, 0.25, 0.75, 1.0]
     }
 
 

@@ -44,7 +44,8 @@ def run_day_ahead_adaptive_elastic_net(
         rolling_window_days=rolling_window_days,
         enet_params=enet_params,
         datetime_col=datetime_col,
-        freq=freq
+        freq=freq,
+        l1_grid=True
     )
 
 
@@ -65,7 +66,7 @@ if __name__ == '__main__':
         rolling_window_days=5,
         param_grid={
             'elasticnet__alpha': [0.1, 1.0, 10.0],
-            'elasticnet__l1_ratio': [0.0, 0.5, 1.0]
+            'elasticnet__l1_ratio': [0.0, 0.4, 1.0]
         },
         grid_params={
             'cv': 5,

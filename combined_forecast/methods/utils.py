@@ -14,7 +14,7 @@ def tune_model_with_gridsearch(pipeline, param_grid, X_train, y_train, grid_para
     return grid
 
 
-def get_model_from_params(params):
+def get_model_from_params(params: dict):
     alpha = params.get("alpha", 1.0)
     l1_ratio = params.get("l1_ratio", 0.5)
     random_state = params.get("random_state", 42)
@@ -24,7 +24,7 @@ def get_model_from_params(params):
     elif l1_ratio == 1.0:
         model = Lasso(alpha=alpha, random_state=random_state, max_iter=2000)
     else:
-        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=2000, random_state=random_state)
+        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=1000, random_state=random_state)
 
     return make_pipeline(StandardScaler(), model)
 

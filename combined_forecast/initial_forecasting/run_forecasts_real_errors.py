@@ -7,8 +7,8 @@ import numpy as np
 from configuration import ModelSettings, FileNames
 from data.data_loader import DataLoader
 from combined_forecast.initial_forecasting.forecasts_real_errors import (
-    run_forecasts1,
-    run_forecasts2,
+    run_forecast1,
+    run_forecast2,
     run_forecast3,
     run_forecast4,
     run_forecast5,
@@ -16,6 +16,9 @@ from combined_forecast.initial_forecasting.forecasts_real_errors import (
     run_forecast7,
     run_forecast8,
     run_forecast9,
+    run_forecasts1_v2,
+    run_forecasts2_v2,
+    run_forecast_new,
 )
 
 file_names = FileNames()
@@ -42,8 +45,8 @@ def run_error_model_forecasts():
     df = df[df[ModelSettings.datetime_col] >= pd.to_datetime('01-01-2012')]
     np.random.seed(42)  # For reproducibility
 
-    df1 = run_forecasts1(df)
-    df2 = run_forecasts2(df)
+    df1 = run_forecast1(df)
+    df2 = run_forecast2(df)
     df3 = run_forecast3(df)
     df4 = run_forecast4(df)
     df5 = run_forecast5(df)
@@ -51,8 +54,11 @@ def run_error_model_forecasts():
     #df7 = run_forecast7(df)
     #df8 = run_forecast8(df)
     #df9 = run_forecast9(df)
+    #df10 = run_forecasts1_v2(df)
+    #df11 = run_forecasts2_v2(df)
+    #df12 = run_forecast_new(df)
 
-    combined_forecast = _combine_forecasts(df, [df1, df2, df3, df4, df5, df6])
+    combined_forecast = _combine_forecasts(df, [df1, df2, df3, df4, df5, df6]) #, df7, df8, df9, df10, df11, df12])
     combined_forecast.to_csv('data/data_files/input_files/error_model_combined_forecasts.csv', index=False)
 
     evaluate_and_plot_forecasts("data/data_files/input_files/error_model_combined_forecasts.csv")
@@ -210,6 +216,51 @@ def evaluate_and_plot_forecasts(filepath: str):
             'rows_analyzed': len(df_valid),
             'rows_excluded (hr=0 & forecasts=0)': int(exclude_mask.sum())
         }
+    
+    def test_pca_variability(df, forecast_cols):
+        """
+        Compute and display the explained variance ratio of forecast columns
+        using PCA, and plot a scree plot to visually inspect the contribution
+        of each principal component.
+        
+        Parameters:
+            df (pd.DataFrame): DataFrame containing forecast data.
+            forecast_cols (list): List of column names that represent forecasts.
+        
+        Returns:
+            explained_variance (np.ndarray): Array of explained variance ratios.
+        """
+        from sklearn.decomposition import PCA
+        import matplotlib.pyplot as plt
+
+        # Standardize forecast values: subtract the mean and divide by std deviation
+        forecasts = df[forecast_cols]
+        # Remove forecasts where hr is zero.
+        forecasts = forecasts[df[ModelSettings.target] != 0]
+        forecasts_standardized = (forecasts - forecasts.mean()) / forecasts.std(ddof=0)
+        
+        # Fit PCA
+        pca = PCA()
+        pca.fit(forecasts_standardized)
+        
+        explained_variance = pca.explained_variance_ratio_
+        
+        # Print out the explained variance ratios
+        print("Explained Variance Ratio per Principal Component:")
+        for i, ratio in enumerate(explained_variance, start=1):
+            print(f"Component {i}: {ratio:.2f}")
+        
+        # Plot the scree plot
+        plt.figure(figsize=(8, 4))
+        plt.plot(range(1, len(explained_variance) + 1), explained_variance, marker='o', linestyle='-')
+        plt.title("PCA Scree Plot")
+        plt.xlabel("Principal Component")
+        plt.ylabel("Explained Variance Ratio")
+        plt.grid(True)
+        plt.show()
+        
+        return explained_variance
+        
 
 
 
@@ -218,16 +269,18 @@ def evaluate_and_plot_forecasts(filepath: str):
     # print("\nForecast Agreement Analysis:")
     # for key, value in result.items():
     #     print(f"{key}: {value:.2f}%")
-    
+
 
     forecast_cols = [col for col in df.columns if col.startswith('A')]
+    forecast_cols2 = forecast_cols.copy()
     forecast_cols = forecast_cols + ['K']
 
     print_error_metrics(df, forecast_cols)
+    test_pca_variability(df, forecast_cols2)
     #plot_forecasts_per_year(df, forecast_cols)
     plot_correlation_heatmap(df, forecast_cols)
     plot_mse_per_year(df, forecast_cols)
-    plot_mse_per_month(df, forecast_cols)
+    #plot_mse_per_month(df, forecast_cols)
 
 
 if __name__ == "__main__":
