@@ -84,31 +84,3 @@ def run_day_ahead_lasso(
         freq=freq
     )
 
-
-
-if __name__ == '__main__':
-    from combined_forecast.utils import generate_sample_data, evaluate_forecast
-
-    df_sample = generate_sample_data()
-    target_col = 'HR'
-    feature_cols = [f'A{i}' for i in range(1, 8)]
-
-    forecast_df = run_day_ahead_lasso(
-        df_sample,
-        target_column=target_col,
-        feature_columns=feature_cols,
-        rolling_window_days=5
-    )
-
-    print(forecast_df)
-
-    if not forecast_df.empty:
-        rmse = evaluate_forecast(forecast_df)
-        print(f"\nRMSE on LASSO forecast: {rmse:.2f}")
-    else:
-        print("No forecasts generated.")
-
-
-# to run:
-# cd /Users/gebruiker/Documents/GitHub/SeminarML25_G12
-# python -m combined_forecast.methods.lasso

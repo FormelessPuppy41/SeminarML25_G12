@@ -48,37 +48,3 @@ def run_day_ahead_adaptive_elastic_net(
         l1_grid=True
     )
 
-
-
-if __name__ == '__main__':
-    from combined_forecast.utils import generate_sample_data, evaluate_forecast
-
-    # Generate sample 15-min interval data for 20 days
-    df_sample = generate_sample_data(start='2023-01-01', days=20)
-    target_col = 'HR'
-    feature_cols = [f'A{i}' for i in range(1, 8)]
-
-    # Run Adaptive Elastic Net with rolling forecast and grid search
-    forecast_df = run_day_ahead_adaptive_elastic_net(
-        df=df_sample,
-        target_column=target_col,
-        feature_columns=feature_cols,
-        rolling_window_days=5,
-        param_grid={
-            'elasticnet__alpha': [0.1, 1.0, 10.0],
-            'elasticnet__l1_ratio': [0.0, 0.4, 1.0]
-        },
-        grid_params={
-            'cv': 5,
-            'n_jobs': -1,
-            'verbose': 1
-        }
-    )
-
-    print(forecast_df)
-
-    if not forecast_df.empty:
-        rmse = evaluate_forecast(forecast_df)
-        print(f"\n RMSE on Adaptive Elastic Net forecast: {rmse:.2f}")
-    else:
-        print("No forecasts generated.")

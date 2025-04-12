@@ -49,71 +49,35 @@ def run_elastic_net(
     """
     if not params:
         raise ValueError("Elastic Net parameters must be provided.")
-    # Check if grid search for alpha is requested
-    # coefs = model.named_steps[model.steps[-1][0]].coef_
-    # dict = {date, **{feature_columns[i]: coefs[i] for i in range(len(feature_columns))}}}
     local_params = params.copy()
 
-    if 'alpha_grid' in local_params:
-        alpha_grid = local_params.pop('alpha_grid')
-        l1_ratio_grid = local_params.pop('l1_ratio_grid')
-        
-        if l1_grid:
-            base_params = {
-                'alpha': alpha_grid[0],
-                'random_state': local_params.get('random_state', 42)
-            }
-        else:
-            base_params = {
-                'alpha': alpha_grid[0],
-                'l1_ratio': l1_ratio_grid[0],
-                'random_state': local_params.get('random_state', 42)
-            }
-        model = get_model_from_params(base_params)
-        step_name = model.steps[-1][0]
-        estimator_class = type(model.named_steps[step_name])
+    # Pop the grid values
+    alpha_grid = local_params.pop('alpha_grid')
+    l1_ratio_grid = local_params.pop('l1_ratio_grid')
+    
+    # Build the model from the provided parameters (this determines model type)
+    model = get_model_from_params(params)
+    step_name = model.steps[-1][0]
 
-        # Define parameter grid depending on estimator type
-        param_grid = {
-            f"{step_name}__alpha": alpha_grid,
-        }
+    # Create the grid - add l1_ratio only if the estimator supports it.
+    param_grid = {f"{step_name}__alpha": alpha_grid}
+    if "l1_ratio" in model.named_steps[step_name].get_params():
+        param_grid[f"{step_name}__l1_ratio"] = l1_ratio_grid
 
-        # Only include l1_ratio if the model supports it
-        if l1_grid and hasattr(model.named_steps[step_name], 'l1_ratio'):
-            param_grid[f"{step_name}__l1_ratio"] = l1_ratio_grid
+    tscv = TimeSeriesSplit(n_splits=5)
+    gs = GridSearchCV(model, param_grid, cv=tscv)
+    gs.fit(train[features], train[target])
 
+    best_model = gs.best_estimator_
+    predictions = best_model.predict(test[features])
+    best_alpha = gs.best_params_[f'{step_name}__alpha']
+    best_l1_ratio = gs.best_params_.get(f'{step_name}__l1_ratio')
 
-
-        tscv = TimeSeriesSplit(n_splits=5)
-        gs = GridSearchCV(model, param_grid, cv=tscv)
-        gs.fit(train[features], train[target])
-
-        best_model = gs.best_estimator_
-
-        predictions = best_model.predict(test[features])
-        best_alpha = gs.best_params_[f'{step_name}__alpha']
-        best_l1_ratio = (
-            gs.best_params_.get(f'{step_name}__l1_ratio')
-            if l1_grid and hasattr(model.named_steps[step_name], 'l1_ratio') else None
-        )
-
-        coefs = best_model.named_steps[step_name].coef_
-    else:
-        fixed_params = {
-            'alpha': local_params.get('alpha', 1.0),
-            'l1_ratio': local_params.get('l1_ratio', 0.5),
-            'random_state': local_params.get('random_state', 42)
-        }
-        best_alpha = fixed_params['alpha']
-        best_l1_ratio = fixed_params['l1_ratio']
-        model = get_model_from_params(fixed_params)
-        model.fit(train[features], train[target])
-        predictions = model.predict(test[features])
-        coefs = model.named_steps[model.steps[-1][0]].coef_
-
+    coefs = best_model.named_steps[step_name].coef_
     test = test.copy()
     test['prediction'] = predictions
     return test, best_alpha, best_l1_ratio, coefs
+
 
 # def run_day_ahead_elastic_net(
 #         df: pd.DataFrame, 
@@ -279,8 +243,10 @@ def run_day_ahead_elastic_net(
     forecast_results = []
     unique_dates = df[datetime_col].unique()
     # Select forecast dates based on your criteria (here, dates with hour==9 and minute==0)
-    forecast_dates = [pd.Timestamp(d) for d in unique_dates 
-                      if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)]
+    forecast_dates = [
+        pd.Timestamp(d) for d in unique_dates 
+        if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)
+    ]
     
     # Submit jobs for all forecast dates beyond the rolling window period
     with ProcessPoolExecutor() as executor:

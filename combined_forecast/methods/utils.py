@@ -15,18 +15,41 @@ def tune_model_with_gridsearch(pipeline, param_grid, X_train, y_train, grid_para
 
 
 def get_model_from_params(params: dict):
-    alpha = params.get("alpha", 1.0)
-    l1_ratio = params.get("l1_ratio", 0.5)
+    # Determine alpha
+    if "alpha_grid" in params:
+        alpha_grid = params["alpha_grid"]
+        alpha = alpha_grid[0]  # This is used only as a starting value
+    else:
+        alpha = 1.0
+
+    # Determine l1_ratio, and check if it's a grid with multiple values
+    if "l1_ratio_grid" in params:
+        l1_ratio_grid = params["l1_ratio_grid"]
+        # If more than one value is provided, we choose ElasticNet.
+        if len(l1_ratio_grid) > 1:
+            # Set a default value that makes sense for ElasticNet (for example, 0.5)
+            l1_ratio = 0.5
+        else:
+            l1_ratio = l1_ratio_grid[0]
+    else:
+        l1_ratio = 0.5
+
     random_state = params.get("random_state", 42)
 
+    # Return the estimator based on the l1_ratio value.
+    # When using grid search over a range of l1_ratio values, default to ElasticNet.
     if l1_ratio == 0.0:
-        model = Ridge(alpha=alpha, random_state=random_state, max_iter=2000)
+        # Only if there is a single grid value (0.0) do we want Ridge.
+        model = Ridge(alpha=alpha, random_state=random_state, max_iter=10000)
     elif l1_ratio == 1.0:
-        model = Lasso(alpha=alpha, random_state=random_state, max_iter=2000)
+        # Only if there is a single grid value (1.0) do we want Lasso.
+        model = Lasso(alpha=alpha, random_state=random_state, max_iter=10000)
     else:
-        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=1000, random_state=random_state)
+        # For other cases (including when multiple values are provided) default to ElasticNet.
+        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000, random_state=random_state)
 
     return make_pipeline(StandardScaler(), model)
+
 
 
 def data_interpolate_prev(

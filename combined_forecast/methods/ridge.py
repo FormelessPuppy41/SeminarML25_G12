@@ -67,10 +67,6 @@ def run_day_ahead_ridge(
     Returns:
         pd.DataFrame: Forecast results with columns ['forecast_time', 'target_time', 'prediction'].
     """
-    # Check if the parameters are provided, and set defaults if not. Enforce Ridge behavior.
-    ridge_params = ridge_params or {'alpha': 1.0}
-    ridge_params['l1_ratio'] = 0.0  # Enforce Ridge behavior
-
     # Run the ElasticNet model
     return run_day_ahead_elastic_net(
         df=df,
@@ -85,30 +81,3 @@ def run_day_ahead_ridge(
     )
 
 
-
-if __name__ == '__main__':
-    from combined_forecast.utils import generate_sample_data, evaluate_forecast
-
-    df_sample = generate_sample_data()
-    target_col = 'HR'
-    feature_cols = [f'A{i}' for i in range(1, 8)]
-
-    forecast_df = run_day_ahead_ridge(
-        df_sample,
-        target_column=target_col,
-        feature_columns=feature_cols,
-        rolling_window_days=5
-    )
-
-    print(forecast_df)
-
-    if not forecast_df.empty:
-        rmse = evaluate_forecast(forecast_df)
-        print(f"\nRMSE on RIDGE forecast: {rmse:.2f}")
-    else:
-        print("No forecasts generated.")
-
-
-# to run:
-# cd /Users/gebruiker/Documents/GitHub/SeminarML25_G12
-# python -m combined_forecast.methods.ridge
