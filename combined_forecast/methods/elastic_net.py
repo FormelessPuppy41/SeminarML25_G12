@@ -13,7 +13,7 @@ from sklearn.linear_model import ElasticNet, Ridge, Lasso
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 
 
-from configuration import ModelSettings
+from configuration import ModelSettings, ModelParameters
 
 from .utils import data_interpolate_prev, data_interpolate_fut, get_model_from_params
 
@@ -77,6 +77,67 @@ def run_elastic_net(
     test = test.copy()
     test['prediction'] = predictions
     return test, best_alpha, best_l1_ratio, coefs
+
+def run_elastic_net_adaptive(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    target: str,
+    features: List[str],
+    params: Dict[str, Any],
+    l1_grid: bool = False
+):
+    """
+    Run an adaptive elastic net regression using initial coefficient estimates
+    to compute adaptive weights.
+    
+    This function computes initial estimates with a Ridge regression,
+    calculates weights as: weights_j = 1/ (|β_j^{init}|**gamma + epsilon)
+    (with a small epsilon to avoid division by zero), scales the features by these
+    weights for the L1 part, and then runs the standard elastic net on the scaled data.
+    The output coefficients are transformed back to the original scale.
+    
+    Args:
+        train: Training DataFrame.
+        test: Testing DataFrame.
+        target: Name of the target column.
+        features: List of feature column names.
+        params: Dictionary of parameters; must include "adaptive": True to trigger this branch,
+                and "gamma": <value> (default can be 1.0) for the weight computation.
+        l1_grid: Whether to perform grid search on L1 penalty parameters.
+    
+    Returns:
+        Tuple: (predicted test DataFrame, best_alpha, best_l1_ratio, coefficients)
+    """
+    # Set gamma (or default to 1.0)
+    gamma = params.get("gamma", 1.0)
+    # Of gridsearch?
+    
+    # 1. Compute initial estimates using a Ridge regressor
+    model = get_model_from_params(ModelParameters.ridge_params)
+    model.fit(train[features], train[target])
+    beta_init = model.coef_
+    
+    # 2. Compute adaptive weights (small constant added to avoid division by zero)
+    epsilon = 1e-6
+    weights = 1.0 / (np.abs(beta_init)**gamma + epsilon)
+    
+    # 3. Scale the features for the L1 penalty; here, we create new DataFrames
+    train_scaled = train.copy()
+    test_scaled = test.copy()
+    for i, col in enumerate(features):
+        train_scaled[col] = train_scaled[col] / weights[i]
+        test_scaled[col] = test_scaled[col] / weights[i]
+    
+    # 4. Run the standard elastic net on the scaled data.
+    # (Reuse your existing run_elastic_net function)
+    pred_df, best_alpha, best_l1_ratio, coefs_scaled = run_elastic_net(
+        train_scaled, test_scaled, target, features, params, l1_grid
+    )
+    
+    # 5. Adjust the coefficients back to their original scale.
+    coefs = coefs_scaled / weights
+    
+    return pred_df, best_alpha, best_l1_ratio, coefs
 
 
 # def run_day_ahead_elastic_net(

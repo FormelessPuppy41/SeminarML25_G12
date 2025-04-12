@@ -38,7 +38,7 @@ def get_model_from_params(params: dict):
 
     # Return the estimator based on the l1_ratio value.
     # When using grid search over a range of l1_ratio values, default to ElasticNet.
-    if l1_ratio == 0.0:
+    if l1_ratio <= 1e-6:
         # Only if there is a single grid value (0.0) do we want Ridge.
         model = Ridge(alpha=alpha, random_state=random_state, max_iter=10000)
     elif l1_ratio == 1.0:

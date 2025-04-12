@@ -39,7 +39,9 @@ def _combine_forecasts(df: pd.DataFrame, forecast_dfs: list[pd.DataFrame]) -> pd
 
 
 def run_error_model_forecasts():
-    df = DataLoader().load_input_data(file_names.input_files.solar_combined_data)
+    # python -m combined_forecast.initial_forecasting.run_forecasts_real_errors
+
+    df = DataLoader().load_input_data(file_names.input_files.solar_combined_data, True)
     df[ModelSettings.datetime_col] = pd.to_datetime(df['Zeit'])
     df.drop(columns=['Zeit'], inplace=True)
     df = df[df[ModelSettings.datetime_col] >= pd.to_datetime('01-01-2012')]
@@ -59,9 +61,9 @@ def run_error_model_forecasts():
     #df12 = run_forecast_new(df)
 
     combined_forecast = _combine_forecasts(df, [df1, df2, df3, df4, df5, df6]) #, df7, df8, df9, df10, df11, df12])
-    combined_forecast.to_csv('data/data_files/input_files/error_model_combined_forecasts.csv', index=False)
+    combined_forecast.to_csv('data/data_files/input_files/error_model_combined_forecasts2.csv', index=False)
 
-    evaluate_and_plot_forecasts("data/data_files/input_files/error_model_combined_forecasts.csv")
+    evaluate_and_plot_forecasts("data/data_files/input_files/error_model_combined_forecasts2.csv")
 
 
 def evaluate_and_plot_forecasts(filepath: str):
@@ -331,10 +333,10 @@ def evaluate_and_plot_forecasts(filepath: str):
     forecast_cols2 = forecast_cols.copy()
     forecast_cols = forecast_cols + ['K']
 
-    print_error_metrics(df, forecast_cols)
-    test_pca_variability(df, forecast_cols2)
+    #print_error_metrics(df, forecast_cols)
+    #test_pca_variability(df, forecast_cols2)
     #plot_forecasts_per_year(df, forecast_cols)
-    plot_correlation_heatmap(df, forecast_cols)
+    #plot_correlation_heatmap(df, forecast_cols)
     plot_mse_per_year(df, forecast_cols)
     plot_mse_per_month(df, forecast_cols)
     evaluate_monthly_forecaster_rank(df, forecast_cols, ModelSettings.target, ModelSettings.datetime_col)

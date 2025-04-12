@@ -14,7 +14,7 @@ class DataLoader:
     def __init__(self):
         self.path = 'data/data_files'
 
-    def load_input_data(self, file_name: str):
+    def load_input_data(self, file_name: str, dot_comma_sep: bool = False):
         """
         This function loads the input data from a CSV file.
 
@@ -25,7 +25,7 @@ class DataLoader:
             pd.DataFrame: The input data.
         """
         path = f'{self.path}/input_files/{file_name}'
-        return self._load_data(path, False)
+        return self._load_data(path, dot_comma_sep)
     
     def load_output_data(self, file_name: str):
         """

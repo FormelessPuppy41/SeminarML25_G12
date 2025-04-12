@@ -106,8 +106,9 @@ def run_forecast1(df: pd.DataFrame) -> pd.DataFrame:
 
     # Seasonal alpha: varies with time of year.
     df['alpha'] = (
-        1.0
+        1.00
         - 0.05 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365)
+        + 0.05 * np.cos(2 * np.pi * (df['day_of_year']) / 365)
         + 0.25 * get_random_fourier_features(
             df['day_of_year'],
             np.random.normal(fourier_d, fourier_d_sigma),
@@ -176,6 +177,7 @@ def run_forecast2(df: pd.DataFrame) -> pd.DataFrame:
     df['alpha'] = (
         1.0 
         + 0.05 * np.cos(2 * np.pi * (df['day_of_year'] - 172) / 365) 
+        - 0.02 * np.cos(2 * np.pi * (df['day_of_year']) / 365) 
         + 0.25 * get_random_fourier_features(
             df['day_of_year'], 
             np.random.normal(fourier_d, fourier_d_sigma), 
@@ -186,7 +188,7 @@ def run_forecast2(df: pd.DataFrame) -> pd.DataFrame:
 
     # Constant delta, with a small seasonal variation.
     df['delta'] = (
-        -0.005 * np.sin(2 * np.pi * df['day_of_year'] / 365)
+        + 0.0005 * np.sin(2 * np.pi * df['day_of_year'] / 365)
         + np.random.normal(mu2, sigma2, len(df))
     )
 
@@ -246,7 +248,7 @@ def run_forecast3(df: pd.DataFrame) -> pd.DataFrame:
     cloud_index = np.clip(cloud_index, -1, 1) 
     df['alpha'] = (
         1 
-        + 0.3 * cloud_index 
+        + 0.4 * cloud_index 
         + 0.15 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     )
@@ -302,8 +304,8 @@ def run_forecast4(df: pd.DataFrame) -> pd.DataFrame:
     # Normalize std to keep alpha in reasonable range (assume std in [0, 0.3])
     df['alpha'] = (
         1.0 
-        + 0.000010 * rolling_std 
-        + 0.15 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
+        - 0.000010 * rolling_std 
+        + 0.20 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     ) # scaling factor to exaggerate effect slightly
     
@@ -352,7 +354,7 @@ def run_forecast5(df: pd.DataFrame) -> pd.DataFrame:
 
     # Constant alpha
     df['alpha'] = (
-        1.0 
+        0.97
         + 0.15 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     )
@@ -401,13 +403,13 @@ def run_forecast6(df: pd.DataFrame) -> pd.DataFrame:
 
     # Alpha: reduce trust when previous forecast error was high
     df['alpha'] = (
-        1.05 
+        1.00 
         + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
     ) # could exceed 1.0 or drop below 0.5 depending on error
     
     # Delta: oppose the direction of previous forecast residual
-    df['delta'] = -0.01  + np.random.normal(mu2, sigma2, len(df))
+    df['delta'] = -0.02  + np.random.normal(mu2, sigma2, len(df))
     
     # t-distribution noise
     df['epsilon'] = np.random.standard_t(df=3, size=len(df)) * 0.05
