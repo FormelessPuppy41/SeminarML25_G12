@@ -36,8 +36,8 @@ def run_models():
     df = DataLoader().load_input_data(file_names.input_files.real_error_data)
     print(df)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
-    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2018')]
-    #df = df[df[model_settings.datetime_col] < pd.to_datetime('07-20-2018')]
+    df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2012')]
+    df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2013')]
     #print(df.head())
 
     forecast_controller = ForecastController(
@@ -51,7 +51,7 @@ def run_models():
             freq=model_settings.freq
         )
     
-    forecast_controller.forecast_simple_average()
+    forecast_controller.forecast_adaptive_elastic_net()
 
 
 
@@ -62,7 +62,7 @@ def run_results(file_name: str):
 if __name__ == "__main__":
     #run_flag_matrix()
     run_models() 
-    run_results(file_names.model_result_files.simple_average_forecast)
+    run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
     #run_models()
     #run_results(file_names.model_result_files.ridge_forecast)
 
