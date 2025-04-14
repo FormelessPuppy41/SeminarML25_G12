@@ -229,6 +229,20 @@ def forecast_single_date(
 ):
     """
     Forecasts a full 96-step next-day horizon by training once per day.
+
+    Args:
+        forecast_date: The date to forecast.
+        df: Full input data with datetime, target and features.
+        target_column: Column name of the target variable (e.g., 'HR').
+        feature_columns: List of forecast provider feature columns.
+        forecast_horizon: Number of forecast periods (default=24 for hourly forecasts).
+        rolling_window_days: Number of days for the training window.
+        enet_params: Elastic Net parameters (e.g. {'alpha': 1.0, 'l1_ratio': 0.5}).
+        datetime_col: Name of the datetime column.
+        freq: Sampling frequency (default='1H' for hourly).
+
+    Returns:
+        List of dictionaries with forecast results for the specified date.
     """
     forecast_results_single = []
     forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)

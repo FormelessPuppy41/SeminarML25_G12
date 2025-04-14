@@ -73,6 +73,23 @@ def forecast_single_date_xgb(
     datetime_col,
     freq
 ):
+    """
+    Generate forecasts for a single date using XGBoost.
+
+    Args:
+        forecast_date: Date to forecast.
+        df: Full dataset with datetime, target, and features.
+        target_column: Target variable name.
+        feature_columns: Feature column names.
+        forecast_horizon: Forecast steps (default=96).
+        rolling_window_days: Days to use for training.
+        xgb_params: XGBoost model parameters.
+        datetime_col: Name of datetime column.
+        freq: Data frequency.
+
+    Returns:
+        List[Dict]: List of dictionaries with forecast results.
+    """
     results = []
     forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
 
