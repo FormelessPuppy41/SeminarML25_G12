@@ -228,40 +228,34 @@ def forecast_single_date(
     l1_grid: bool = False
 ):
     """
-    Processes the forecast for a single date.
-    Computes training and testing data based on the forecast date,
-    then loops over the test rows to generate predictions.
+    Forecasts a full 96-step next-day horizon by training once per day.
     """
     forecast_results_single = []
-    # Calculate the forecast start date (e.g., next day)
     forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
     
-    # Interpolate training and test data for this forecast date
     train_df = data_interpolate_prev(df, forecast_date, rolling_window_days)
     test_df = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
     
-    # Skip if there’s no data
     if train_df.empty or test_df.empty:
         return forecast_results_single
 
-    # Loop over each test time in the test data using the ModelSettings datetime column
-    for ts in test_df[ModelSettings.datetime_col]:
-        row_df = test_df[test_df[ModelSettings.datetime_col] == ts]
-        if row_df.empty:
-            continue
-        # Call run_elastic_net (which already handles grid search / fixed params)
-        pred_df, best_alpha, best_l1_ratio, coefs = run_elastic_net(
-            train_df, row_df, target_column, feature_columns, enet_params, l1_grid
-        )
+    # Run the model ONCE for entire next-day test set
+    pred_df, best_alpha, best_l1_ratio, coefs = run_elastic_net(
+        train_df, test_df, target_column, feature_columns, enet_params, l1_grid
+    )
+
+    for _, row in pred_df.iterrows():
         forecast_results_single.append({
-            'target_time': ts,
-            'prediction': pred_df['prediction'].values[0],
-            'actual': pred_df[target_column].values[0],
+            'target_time': row[ModelSettings.datetime_col],
+            'prediction': row['prediction'],
+            'actual': row[target_column],
             'best_alpha': best_alpha,
             'best_l1_ratio': best_l1_ratio,
             'coefs': coefs
         })
+
     return forecast_results_single
+
 
 
 def run_day_ahead_elastic_net(
