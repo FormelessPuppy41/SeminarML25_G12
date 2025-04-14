@@ -21,33 +21,20 @@ def apply_error_model(
         delta: np.ndarray,
         epsilon: np.ndarray
     ) -> np.ndarray:
-    """
-    Applies the base error model to produce forecasted values:
-        forecast_i = HR_i + alpha_i * (K_i - HR_i) + delta_i + epsilon_i
 
-    Where:
-        - alpha_i: scaling factor (1D array)
-        - K_i: raw forecast (1D array)
-        - HR_i: actual solar yield (1D array)
-        - delta_i: bias to be applied only when HR_i > 0
-        - epsilon_i: noise added to the forecast
-
-    All inputs must be the same shape.
-
-    Returns:
-        forecasted_value (np.ndarray): Forecasted HR values
-    """
     if not (len(alpha) == len(k) == len(hr) == len(delta) == len(epsilon)):
         raise ValueError("All input arrays must have the same length.")
     
     k_hr = k - hr
+    
     # Base error term from K vs HR
-    error = alpha * (k_hr)
+    error = alpha * k_hr
+    delta_hr = delta * k_hr 
+    epsilon_hr = epsilon * k_hr
 
     # Only apply delta and epsilon when HR > 0
     sun_mask = hr > 0
-    delta_hr = delta * k_hr 
-    epsilon_hr = epsilon * k_hr
+
     error[sun_mask] += delta_hr[sun_mask] + epsilon_hr[sun_mask]
     
     return hr + error

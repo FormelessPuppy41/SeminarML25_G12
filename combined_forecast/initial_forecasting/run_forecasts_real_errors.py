@@ -334,13 +334,14 @@ def evaluate_and_plot_forecasts(filepath: str):
     forecast_cols = forecast_cols + ['K']
 
     #print_error_metrics(df, forecast_cols)
-    #test_pca_variability(df, forecast_cols2)
+    test_pca_variability(df, forecast_cols2)
     #plot_forecasts_per_year(df, forecast_cols)
-    #plot_correlation_heatmap(df, forecast_cols)
+    plot_correlation_heatmap(df, forecast_cols)
     plot_mse_per_year(df, forecast_cols)
-    plot_mse_per_month(df, forecast_cols)
+    #plot_mse_per_month(df, forecast_cols)
     evaluate_monthly_forecaster_rank(df, forecast_cols, ModelSettings.target, ModelSettings.datetime_col)
 
 
 if __name__ == "__main__":
-    run_error_model_forecasts()
+    #run_error_model_forecasts()
+    evaluate_and_plot_forecasts("data/data_files/input_files/error_model_combined_forecasts.csv")

@@ -119,7 +119,7 @@ def run_elastic_net_adaptive(
     
     # 2. Compute adaptive weights (small constant added to avoid division by zero)
     epsilon = 1e-6
-    weights = 1.0 / (np.abs(beta_init)**gamma + epsilon)
+    weights = 1.0 / (np.abs(beta_init)**gamma) # + epsilon)
     
     # 3. Scale the features for the L1 penalty; here, we create new DataFrames
     train_scaled = train.copy()
@@ -349,40 +349,95 @@ def run_day_ahead_elastic_net(
 
 
 
+def forecast_single_date_adaptive(
+    forecast_date: pd.Timestamp,
+    df: pd.DataFrame,
+    target_column: str,
+    feature_columns: List[str],
+    forecast_horizon: int,
+    rolling_window_days: int,
+    enet_params: dict,
+    datetime_col: str,
+    freq: str,
+    l1_grid: bool = False
+):
+    forecast_results_single = []
+    forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
 
+    train_df = data_interpolate_prev(df, forecast_date, rolling_window_days)
+    test_df = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
 
+    if train_df.empty or test_df.empty:
+        return forecast_results_single
 
-
-
-
-if __name__ == '__main__':
-    from ..utils import evaluate_forecast, generate_sample_data
-    
-    #df_sample = generate_sample_data(start='2023-01-01', days=20)
-    df_sample = pd.read_csv('/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/kaggle_data/combined_forecasts.csv')
-    target_col = 'HR'
-    feature_cols = [f'A{i}' for i in range(1, 5)]
-
-    # Load the flag matrix
-    flag_matrix = pd.read_csv('/Users/gebruiker/Documents/GitHub/SeminarML25_G12/data/kaggle_data/flag_matrix.csv')
-
-    forecast_df = run_day_ahead_elastic_net(
-        df_sample,
-        flag_matrix, 
-        target_column=target_col,
-        feature_columns=feature_cols,
-        rolling_window_days=5,
-        enet_params={'alpha': 1.0, 'l1_ratio': 0.5}
+    pred_df, best_alpha, best_l1_ratio, coefs = run_elastic_net_adaptive(
+        train_df, test_df, target_column, feature_columns, enet_params, l1_grid
     )
 
-    print(forecast_df)
+    for _, row in pred_df.iterrows():
+        forecast_results_single.append({
+            'target_time': row[ModelSettings.datetime_col],
+            'prediction': row['prediction'],
+            'actual': row[target_column],
+            'best_alpha': best_alpha,
+            'best_l1_ratio': best_l1_ratio,
+            'coefs': coefs
+        })
 
-    if not forecast_df.empty:
-        rmse = evaluate_forecast(forecast_df)
-        print(f"\nRMSE on ElNET forecast: {rmse:.2f}")
-    else:
-        print("No forecasts generated.")
+    return forecast_results_single
 
-# to run:
-# cd /Users/gebruiker/Documents/GitHub/SeminarML25_G12
-# python -m combined_forecast.methods.elastic_net
+def run_day_ahead_elastic_net_adaptive(
+    df: pd.DataFrame,
+    target_column: str,
+    feature_columns: List[str],
+    forecast_horizon: int = 96,
+    rolling_window_days: int = 165,
+    enet_params: Dict[str, Any] = None,
+    datetime_col: str = 'datetime',
+    freq: str = '15min',
+    l1_grid: bool = False
+) -> pd.DataFrame:
+    if not enet_params:
+        raise ValueError("Elastic Net parameters must be provided.")
+    if datetime_col not in df.columns:
+        raise ValueError(f"'{datetime_col}' not found in DataFrame.")
+
+    df = df.copy()
+    df[datetime_col] = pd.to_datetime(df[datetime_col])
+
+    forecast_results = []
+    unique_dates = df[datetime_col].unique()
+    forecast_dates = [
+        pd.Timestamp(d) for d in unique_dates 
+        if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)
+    ]
+
+    with ProcessPoolExecutor() as executor:
+        futures = {
+            executor.submit(
+                forecast_single_date_adaptive,
+                forecast_date,
+                df,
+                target_column,
+                feature_columns,
+                forecast_horizon,
+                rolling_window_days,
+                enet_params,
+                datetime_col,
+                freq,
+                l1_grid
+            ): forecast_date for forecast_date in forecast_dates[rolling_window_days:]
+        }
+
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Adaptive forecasting"):
+            try:
+                result = future.result()
+                forecast_results.extend(result)
+            except Exception as exc:
+                print(f"Adaptive forecasting for date {futures[future]} failed: {exc}")
+
+        print("Adaptive elastic net forecasting complete.")
+    
+    return pd.DataFrame(forecast_results)
+
+

@@ -4,7 +4,7 @@ Adaptive Elastic Net Regression using the shared Elastic Net model pipeline
 import pandas as pd
 from typing import List, Dict, Any
 
-from combined_forecast.methods.elastic_net import run_day_ahead_elastic_net
+from combined_forecast.methods.elastic_net import run_day_ahead_elastic_net_adaptive
 
 def run_day_ahead_adaptive_elastic_net(
     df: pd.DataFrame,
@@ -36,7 +36,7 @@ def run_day_ahead_adaptive_elastic_net(
     if not enet_params:
         raise ValueError("Elastic Net parameters must be provided.")
     
-    return run_day_ahead_elastic_net(
+    return run_day_ahead_elastic_net_adaptive(
         df=df,
         target_column=target_column,
         feature_columns=feature_columns,
