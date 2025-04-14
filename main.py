@@ -51,7 +51,7 @@ def run_models():
             freq=model_settings.freq
         )
     
-    forecast_controller.forecast_adaptive_elastic_net()
+    forecast_controller.forecast_elastic_net()
 
 
 
@@ -62,7 +62,7 @@ def run_results(file_name: str):
 if __name__ == "__main__":
     #run_flag_matrix()
     run_models() 
-    run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
+    run_results(file_names.model_result_files.elastic_net_forecast)
     #run_models()
     #run_results(file_names.model_result_files.ridge_forecast)
 

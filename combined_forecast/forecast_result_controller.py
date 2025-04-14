@@ -10,6 +10,33 @@ from configuration import FileNames
 
 file_names = FileNames()
 
+import pandas as pd
+from sklearn.metrics import mean_squared_error
+import numpy as np
+
+def compute_yearly_rmse(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute yearly RMSE between predicted and actual values.
+
+    Parameters:
+        df (pd.DataFrame): Must contain 'target_time', 'prediction', and 'actual'.
+
+    Returns:
+        pd.DataFrame: Yearly RMSE and number of data points.
+    """
+    df = df.copy()
+    df['year'] = pd.to_datetime(df['target_time']).dt.year
+
+    results = (
+        df.groupby('year')
+        .apply(lambda group: pd.Series({
+            'RMSE': np.sqrt(mean_squared_error(group['actual'], group['prediction'])),
+            'N': len(group)
+        }))
+        .reset_index()
+    )
+
+    return results
 
 class ForecastResultController:
     """
@@ -24,7 +51,7 @@ class ForecastResultController:
         """
         result_df = DataLoader().load_model_results(file_name)
         ic(result_df.head())
-
+        print(compute_yearly_rmse(result_df))
         forecast_result_processor = ForecastResultProcessor(result_df)
         ic(forecast_result_processor.compute_metrics())
 

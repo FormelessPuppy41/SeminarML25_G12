@@ -115,8 +115,10 @@ def run_elastic_net_adaptive(
     # 1. Compute initial estimates using a Ridge regressor
     model = get_model_from_params(ModelParameters.ridge_params)
     model.fit(train[features], train[target])
-    beta_init = model.coef_
-    
+    final_model = model.named_steps[list(model.named_steps)[-1]]
+    beta_init = final_model.coef_
+
+
     # 2. Compute adaptive weights (small constant added to avoid division by zero)
     epsilon = 1e-6
     weights = 1.0 / (np.abs(beta_init)**gamma) # + epsilon)
