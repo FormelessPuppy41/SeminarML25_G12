@@ -89,15 +89,6 @@ def get_random_fourier_features(day_of_week: pd.Series, D: int = fourier_d, gamm
 # Transformers: zin voor eerste twee, maar logisch dat het completere model met decoder + autoregressive beter is. 
 
 def run_forecast1(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    SUMMER SPECIALIST!
-
-    Forecasts HR using an error model based on:
-        - alpha: seasonal cosine function
-        - epsilon: noise from a t-distribution, scaled seasonally so that forecasts are less good (more variable) in the summer and better (less variable) in the winter.
-        - delta: constant bias added when HR > 0
-    The structure and output match run_forecast2 for comparison.
-    """
     df = df.copy()
 
     # Ensure datetime is set correctly.
@@ -158,15 +149,6 @@ def run_forecast1(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_forecast2(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    WINTER SPECIALIST!
-
-    Forecasts HR using an error model based on:
-        - alpha: seasonal cosine function
-        - epsilon: noise from a t-distribution, now scaled so that forecasts are a bit worse in winter and a bit better in summer.
-        - delta: constant bias added when HR > 0
-    The structure and output match run_forecast2 for comparison.
-    """
     df = df.copy()
 
     # Ensure datetime is correctly interpreted.
@@ -228,15 +210,6 @@ def run_forecast2(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_forecast3(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    CLOUD ADAPTIVE!
-
-    Forecasts HR using an error model based on:
-        - alpha: seasonal cosine function
-        - epsilon: noise from t-distribution
-        - delta: constant bias added when HR > 0
-    The structure and output match run_forecast2 for comparison.
-    """
     df = df.copy()
 
     # Ensure datetime
@@ -280,15 +253,6 @@ def run_forecast3(df: pd.DataFrame) -> pd.DataFrame:
     return result.fillna(0)
 
 def run_forecast4(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    VOLATILITY COMPENSATOR!
-
-    Forecasts HR using an error model based on:
-        - alpha: seasonal cosine function
-        - epsilon: noise from t-distribution
-        - delta: constant bias added when HR > 0
-    The structure and output match run_forecast2 for comparison.
-    """
     df = df.copy()
 
     # Ensure datetime
@@ -337,15 +301,6 @@ def run_forecast4(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_forecast5(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    SYSTEMATICALLY BIASED FORECASTER!
-
-    Forecasts HR using an error model based on:
-        - alpha: seasonal cosine function
-        - epsilon: noise from t-distribution
-        - delta: constant bias added when HR > 0
-    The structure and output match run_forecast2 for comparison.
-    """
     df = df.copy()
 
     # Ensure datetime
@@ -386,15 +341,6 @@ def run_forecast5(df: pd.DataFrame) -> pd.DataFrame:
     return result.fillna(0)
 
 def run_forecast6(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    ERROR-CORRECTING FORECASTER!
-
-    Forecasts HR using an error model based on:
-        - alpha: seasonal cosine function
-        - epsilon: noise from t-distribution
-        - delta: constant bias added when HR > 0
-    The structure and output match run_forecast2 for comparison.
-    """
     df = df.copy()
 
     # Ensure datetime
