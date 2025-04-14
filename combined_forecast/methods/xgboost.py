@@ -73,6 +73,23 @@ def forecast_single_date_xgb(
     datetime_col,
     freq
 ):
+    """
+    Generate forecasts for a single date using XGBoost.
+
+    Args:
+        forecast_date: Date to forecast.
+        df: Full dataset with datetime, target, and features.
+        target_column: Target variable name.
+        feature_columns: Feature column names.
+        forecast_horizon: Forecast steps (default=96).
+        rolling_window_days: Days to use for training.
+        xgb_params: XGBoost model parameters.
+        datetime_col: Name of datetime column.
+        freq: Data frequency.
+
+    Returns:
+        List[Dict]: List of dictionaries with forecast results.
+    """
     results = []
     forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
 
@@ -82,17 +99,23 @@ def forecast_single_date_xgb(
     if train_df.empty or test_df.empty:
         return results
 
-    for ts in test_df[ModelSettings.datetime_col]:
-        row_df = test_df[test_df[ModelSettings.datetime_col] == ts]
-        if row_df.empty:
-            continue
-        pred_df = run_xgboost(train_df, row_df, target_column, feature_columns, xgb_params)
+    # Train once
+    model = get_xgb_model(xgb_params)
+    model.fit(train_df[feature_columns], train_df[target_column])
+
+    # Predict all 96 intervals at once
+    test_df = test_df.copy()
+    test_df['prediction'] = model.predict(test_df[feature_columns])
+
+    # Collect results
+    for _, row in test_df.iterrows():
         results.append({
-            'target_time': ts,
-            'prediction': pred_df['prediction'].values[0],
-            'actual': pred_df[target_column].values[0]
+            'target_time': row[ModelSettings.datetime_col],
+            'prediction': row['prediction'],
+            'actual': row[target_column]
         })
     return results
+
 
 
 
