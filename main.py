@@ -36,8 +36,8 @@ def run_models():
     df = DataLoader().load_input_data(file_names.input_files.real_error_data)
     print(df)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
-    df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2012')]
-    df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2013')]
+    df = df[df[model_settings.datetime_col] >= pd.to_datetime('07-20-2013')]
+    df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2016')]
     #print(df.head())
 
     forecast_controller = ForecastController(

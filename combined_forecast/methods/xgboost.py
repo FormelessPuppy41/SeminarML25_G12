@@ -11,6 +11,9 @@ from xgboost import XGBRegressor
 from configuration import ModelSettings
 from .utils import data_interpolate_prev, data_interpolate_fut
 
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
+
 
 def get_xgb_model(params: Dict[str, Any]) -> XGBRegressor:
     """
@@ -59,7 +62,41 @@ def run_xgboost(
     test['prediction'] = model.predict(test[features])
     return test
 
+def forecast_single_date_xgb(
+    forecast_date,
+    df,
+    target_column,
+    feature_columns,
+    forecast_horizon,
+    rolling_window_days,
+    xgb_params,
+    datetime_col,
+    freq
+):
+    results = []
+    forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
 
+    train_df = data_interpolate_prev(df, forecast_date, rolling_window_days)
+    test_df = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
+
+    if train_df.empty or test_df.empty:
+        return results
+
+    for ts in test_df[ModelSettings.datetime_col]:
+        row_df = test_df[test_df[ModelSettings.datetime_col] == ts]
+        if row_df.empty:
+            continue
+        pred_df = run_xgboost(train_df, row_df, target_column, feature_columns, xgb_params)
+        results.append({
+            'target_time': ts,
+            'prediction': pred_df['prediction'].values[0],
+            'actual': pred_df[target_column].values[0]
+        })
+    return results
+
+
+
+"""
 def run_day_ahead_xgboost(
     df: pd.DataFrame,
     # flag_matrix_df: pd.DataFrame,
@@ -71,7 +108,7 @@ def run_day_ahead_xgboost(
     datetime_col: str = 'datetime',
     freq: str = '15min'
 ) -> pd.DataFrame:
-    """
+    ""
     Generate 96-step day-ahead forecasts using rolling XGBoost regression.
 
     Args:
@@ -86,7 +123,7 @@ def run_day_ahead_xgboost(
 
     Returns:
         pd.DataFrame: Forecast results with ['target_time', 'prediction', 'actual'].
-    """
+    ""
     xgb_params = xgb_params or {'n_estimators': 100, 'max_depth': 3, 'learning_rate': 0.1, 'random_state': 42}
 
     if datetime_col not in df.columns:
@@ -138,27 +175,70 @@ def run_day_ahead_xgboost(
             })
 
     return pd.DataFrame(forecast_results)
+"""
 
+def run_day_ahead_xgboost(
+    df: pd.DataFrame,
+    # flag_matrix_df: pd.DataFrame,
+    target_column: str,
+    feature_columns: List[str],
+    forecast_horizon: int = 96,
+    rolling_window_days: int = 165,
+    xgb_params: Dict[str, Any] = None,
+    datetime_col: str = 'datetime',
+    freq: str = '15min'
+) -> pd.DataFrame:
+    """
+    Generate 96-step day-ahead forecasts using rolling XGBoost regression.
 
-if __name__ == '__main__':
-    from ..utils import evaluate_forecast, generate_sample_data
+    Args:
+        df: Full dataset with datetime, target, and features.
+        target_column: Target variable name.
+        feature_columns: Feature column names.
+        forecast_horizon: Forecast steps (default=96).
+        rolling_window_days: Days to use for training.
+        xgb_params: XGBoost model parameters.
+        datetime_col: Name of datetime column.
+        freq: Data frequency.
 
-    df_sample = generate_sample_data(start='2023-01-01', days=20)
-    target_col = 'HR'
-    feature_cols = [f'A{i}' for i in range(1, 8)]
+    Returns:
+        pd.DataFrame: Forecast results with ['target_time', 'prediction', 'actual'].
+    """
+    xgb_params = xgb_params or {'n_estimators': 100, 'max_depth': 3, 'learning_rate': 0.1, 'random_state': 42}
 
-    forecast_df = run_day_ahead_xgboost(
-        df_sample,
-        target_column=target_col,
-        feature_columns=feature_cols,
-        rolling_window_days=5,
-        xgb_params={'n_estimators': 200, 'max_depth': 4, 'learning_rate': 0.05, 'random_state': 42}
-    )
+    if datetime_col not in df.columns:
+        raise ValueError(f"'{datetime_col}' not found in DataFrame.")
 
-    print(forecast_df)
+    df = df.copy()
+    df[datetime_col] = pd.to_datetime(df[datetime_col])
 
-    if not forecast_df.empty:
-        rmse = evaluate_forecast(forecast_df)
-        print(f"\nRMSE on XGBoost forecast: {rmse:.2f}")
-    else:
-        print("No forecasts generated.")
+    forecast_results = []
+    unique_dates = df[datetime_col].unique()
+    forecast_dates = [pd.Timestamp(d) for d in unique_dates if pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0]
+
+    forecast_results = []
+    with ProcessPoolExecutor() as executor:
+        futures = {
+            executor.submit(
+                forecast_single_date_xgb,
+                forecast_date,
+                df,
+                target_column,
+                feature_columns,
+                forecast_horizon,
+                rolling_window_days,
+                xgb_params,
+                datetime_col,
+                freq
+            ): forecast_date for forecast_date in forecast_dates[rolling_window_days:]
+        }
+
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Parallel forecasting (XGBoost)"):
+            try:
+                result = future.result()
+                forecast_results.extend(result)
+            except Exception as exc:
+                print(f"Forecasting for {futures[future]} failed: {exc}")
+
+    return pd.DataFrame(forecast_results)
+
