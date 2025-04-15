@@ -74,7 +74,7 @@ class ModelSettings:
     forecast_horizon = 96
     rolling_window_days = 165
     datetime_col = 'datetime'
-    freq = '15min'
+    freq = '1H' #'15min' or '1H'
 
 
 @dataclass
@@ -92,6 +92,7 @@ class FileNames:
         combined_forecasts = 'combined_forecasts.csv'
         flag_matrix = 'flag_matrix.csv'
         real_error_data = 'error_model_combined_forecasts.csv'
+        data_different_group = 'data_ander_groepje.csv'
 
     @dataclass
     class OutputFiles:

@@ -29,26 +29,21 @@ file_names = FileNames()
 def run_models():
     model_settings = ModelSettings()
 
-    # flag_matrix_df = DataLoader().load_input_data(file_names.input_files.flag_matrix)
-    # flag_matrix_df.rename(columns={'date': ModelSettings.datetime_col}, inplace=True)
-    # print(flag_matrix_df.head())
-
-    df = DataLoader().load_input_data(file_names.input_files.real_error_data)
-    print(df)
+    df = DataLoader().load_input_data(file_names.input_files.data_different_group)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
+    print(df)
     #df = df[df[model_settings.datetime_col] >= pd.to_datetime('07-20-2013')]
-    #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2016')]
+    #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2014')]
     #print(df.head())
 
     forecast_controller = ForecastController(
             df=df, 
-            #flag_matrix_df=flag_matrix_df,
             target=model_settings.target, 
             features=model_settings.features,
             forecast_horizon=model_settings.forecast_horizon,
             rolling_window_days=model_settings.rolling_window_days,
             datetime_col=model_settings.datetime_col,
-            freq=model_settings.freq
+            freq=model_settings.freq # Change to '15min' or '1h' if needed.
         )
     
     forecast_controller.forecast_elastic_net()

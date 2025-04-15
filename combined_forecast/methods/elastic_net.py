@@ -210,7 +210,7 @@ def forecast_single_date_generic(
 
     if train_df.empty or test_df.empty:
         return forecast_results_single
-
+    
     pred_df, best_alpha, best_l1_ratio, coefs = model_runner(
         train_df, test_df, target_column, feature_columns, enet_params
     )
