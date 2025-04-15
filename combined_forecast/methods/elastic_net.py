@@ -113,7 +113,7 @@ def run_elastic_net_adaptive(
     # 2. Compute adaptive weights (small constant added to avoid division by zero)
     epsilon = 1e-6
     weights = 1.0 / (np.abs(beta_init)**gamma) # + epsilon)
-    
+    print(weights)
     # 3. Scale the features for the L1 penalty; here, we create new DataFrames
     train_scaled = train.copy()
     test_scaled = test.copy()
@@ -121,6 +121,9 @@ def run_elastic_net_adaptive(
         train_scaled[col] = train_scaled[col] / weights[i]
         test_scaled[col] = test_scaled[col] / weights[i]
     
+    print("Scaled features for L1 penalty.")
+    print(train_scaled[features].head())
+    print(train[features].head())
     # 4. Run the standard elastic net on the scaled data.
     # (Reuse your existing run_elastic_net function)
     pred_df, best_alpha, best_l1_ratio, coefs_scaled = run_elastic_net(
@@ -129,7 +132,7 @@ def run_elastic_net_adaptive(
     
     # 5. Adjust the coefficients back to their original scale.
     coefs = coefs_scaled / weights
-    
+    raise ValueError
     return pred_df, best_alpha, best_l1_ratio, coefs
 
 
@@ -319,6 +322,7 @@ def run_day_ahead_forecasting(
                 result = future.result()
                 forecast_results.extend(result)
             except Exception as exc:
+                raise ValueError(f"Forecasting failed for {futures[future]}: {exc}")
                 print(f"Forecasting failed for {futures[future]}: {exc}")
     
     print("Forecasting complete.")
