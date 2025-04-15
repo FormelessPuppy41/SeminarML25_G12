@@ -35,17 +35,6 @@ def preprocess(df: pd.DataFrame):
     #df[[ModelSettings.target, 'K']] = scaler.fit_transform(df[[ModelSettings.target, 'K']])
     return df
 
-# ---------- Step 2: Generate Latent Signals ----------
-def generate_latent_signals(length, seed=42):
-    np.random.seed(seed)
-    t = np.linspace(0, 2 * np.pi * length / 96, length)
-
-    base1 = np.sin(t)  # Diurnal cycle
-    base2 = np.cos(t / 2)  # Slower trend
-    base3 = np.random.normal(0, 0.5, length)  # Random noise / anomalies
-
-    return base1, base2, base3
-
 # ---------- Step 3: Create Synthetic Forecasts ----------
 def generate_deviations(length: np.ndarray, hr: np.ndarray, residuals: np.ndarray, daylight_mask: np.ndarray, scale=1, seed=42):
     np.random.seed(seed)
@@ -53,7 +42,7 @@ def generate_deviations(length: np.ndarray, hr: np.ndarray, residuals: np.ndarra
 
     # Define base deviation patterns (scaled unitless multipliers)
     dev1 = scale * 0.6 * np.sin(3 * t)                            # Diurnal bias
-    dev2 = scale * 0.15 * np.random.normal(0, 1, length)           # Random noise
+    dev2 = scale * 0.25 * np.random.normal(0, 1, length)           # Random noise
     dev3 = scale * 0.4 * np.cos(1.5 * t + np.pi / 3)              # Seasonal-ish bias
     dev4 = scale * 0.3 * residuals / (np.max(np.abs(residuals)) + 1e-6)  # Scaled error feedback
     dev5 = scale * 0.2 * residuals / (np.mean(hr[daylight_mask]) + 1e-6)  # Relative error signal
@@ -225,7 +214,7 @@ def generate_synthetic_forecasts_from_hr(df: pd.DataFrame, seed=42):
         forecast = np.clip(forecast, 0, None)
         forecasts.append(forecast)
 
-    forecasts = np.array(forecasts).T  # (time, 6)
+    forecasts = np.array(forecasts).T  # now shape is (time, 6)
 
     def forecast_evalutation():
         # Evaluation
@@ -239,67 +228,6 @@ def generate_synthetic_forecasts_from_hr(df: pd.DataFrame, seed=42):
     
     return forecasts
 
-
-"""
-def generate_synthetic_forecasts_from_hr(df: pd.DataFrame, seed=42):
-    np.random.seed(seed)
-    k_array = df['K'].values
-    hr = df[ModelSettings.target].values
-    length = len(k_array)
-
-    hr_daylight_mask = hr > 0
-    k_daylight_mask = k_array > 0
-    hr_day = df.loc[hr_daylight_mask, ModelSettings.target]
-    k_day = df.loc[hr_daylight_mask, 'K']
-
-    mape = np.mean(np.abs(k_day - hr_day) / hr_day)
-
-    # Time index for structured patterns
-    t = np.linspace(0, 2 * np.pi, length)
-
-    # Generate structured deviations
-    dev1 = 0.65 * np.sin(3 * t)                          # daily pattern bias
-    dev2 = 0.35 * np.random.normal(0, 1, length)         # random noise
-    dev3 = 0.65 * np.cos(1.5 * t + np.pi / 3)            # phase-shifted seasonal-ish trend
-    
-    # Descripe deviations:
-    print(f"Dev1: mean={np.mean(dev1):.4f}, std={np.std(dev1):.4f}, min={np.min(dev1):.4f}, max={np.max(dev1):.4f}")
-    print(f"Dev2: mean={np.mean(dev2):.4f}, std={np.std(dev2):.4f}, min={np.min(dev2):.4f}, max={np.max(dev2):.4f}")
-    print(f"Dev3: mean={np.mean(dev3):.4f}, std={np.std(dev3):.4f}, min={np.min(dev3):.4f}, max={np.max(dev3):.4f}")
-    
-    # Only apply deviations where K > 0 (daylight hours forecasted)
-    dev1[~k_daylight_mask] = 0
-    dev2[~k_daylight_mask] = 0
-    dev3[~k_daylight_mask] = 0
-
-    forecasts = []
-    weights = [
-        (0.6, 0.3, 0.1),
-        (0.5, 0.4, 0.1),
-        (0.3, 0.5, 0.2),
-        (0.2, 0.6, 0.2),
-        (0.4, 0.2, 0.4),
-        (0.5, 0.0, 0.5)
-    ]
-
-    for w1, w2, w3 in weights:
-        total_deviation = w1 * dev1 + w2 * dev2 + w3 * dev3
-        forecast = hr * (1 + total_deviation)
-        forecast = np.clip(forecast, 0, None)
-        forecasts.append(forecast)
-
-    forecasts = np.array(forecasts).T  # shape: (time, 6)
-
-    # Calculate MAE and MAPE for each forecast
-    print("\n--- Forecast Evaluation ---")
-    print(f"Initial MAPE: {mape:.2%}")
-    for i in range(6):
-        mae = np.mean(np.abs((forecasts[:, i] - hr)[hr_daylight_mask]))
-        mape = np.mean(np.abs((forecasts[:, i] - hr)[hr_daylight_mask] / hr[hr_daylight_mask]))
-        print(f"A{i+1}: MAE={mae:.3f}, MAPE={mape:.2%}")
-
-    return forecasts
-"""
 
 # ---------- Step 4: Perform PCA ----------
 def run_pca(df: pd.DataFrame, forecast_cols):
@@ -369,6 +297,8 @@ def evaluate_forecast_diversity(df: pd.DataFrame, interval='M'):
     for i in range(6):
         forecast_col = f'A{i+1}'
         error_df[f'A{i+1}'] = df[ModelSettings.target] - df[forecast_col]
+    
+    error_df['K'] = df[ModelSettings.target] - df['K']
 
     error_df = pd.DataFrame(error_df, index=df.index)
     mae_by_interval = error_df.abs().resample(interval).mean()
@@ -398,12 +328,67 @@ def evaluate_forecast_diversity(df: pd.DataFrame, interval='M'):
     plt.ylabel('Count')
     plt.tight_layout()
 
+
+def plot_error_direction(df, forecast_cols, target_col, resample_interval=None):
+    """
+    Plot the error direction (forecast minus actual) for each forecaster in separate subplots.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the ground truth and forecast columns.
+        forecast_cols (list of str): Column names for the forecasts.
+        target_col (str): Column name for the ground truth.
+        resample_interval (str, optional): Pandas offset alias to resample the data 
+            (e.g., 'D' for daily, 'M' for monthly). If provided, errors are aggregated by mean.
+    """
+    # If a resample interval is provided, aggregate errors accordingly.
+    if resample_interval is not None:
+        df_plot = df.copy()
+        # Calculate error for each forecast column
+        for col in forecast_cols:
+            df_plot[f'{col}_error'] = df_plot[col] - df_plot[target_col]
+        # Resample: use mean error in each interval
+        df_plot = df_plot.resample(resample_interval).mean()
+        error_cols = [f'{col}_error' for col in forecast_cols]
+        time_index = df_plot.index
+    else:
+        # Use the raw errors
+        error_cols = forecast_cols  # We'll compute error on the fly below
+        time_index = df.index
+
+    n_forecasts = len(forecast_cols)
+    fig, axes = plt.subplots(n_forecasts, 1, figsize=(15, 3 * n_forecasts), sharex=True)
+    
+    # If there's only one forecast, wrap it in a list.
+    if n_forecasts == 1:
+        axes = [axes]
+        
+    # Loop through each forecaster and plot its error direction.
+    for i, col in enumerate(forecast_cols):
+        if resample_interval is not None:
+            errors = df_plot[f'{col}_error']
+        else:
+            errors = df[col] - df[target_col]
+            
+        # Plot error as a bar chart.
+        # We use different colors based on error direction: red for positive, green for negative.
+        colors = ['red' if err > 0 else 'green' for err in errors]
+        axes[i].bar(time_index, errors, color=colors, width=1, align='center')
+        axes[i].axhline(0, color='black', linewidth=0.8, linestyle='--')
+        axes[i].set_title(f'Error Direction for {col} (Forecast - Actual)')
+        axes[i].set_ylabel('Error')
+        # Improve readability when many time points are present.
+        axes[i].tick_params(axis='x', rotation=45)
+    
+    axes[-1].set_xlabel('Time')
+    plt.tight_layout()
+    plt.show()
+
+
 # ---------- Step 7: Main Pipeline ----------
 def generate_forecasts_and_decompose(df):
     df_clean = preprocess(df)
     n = len(df_clean)
 
-    base1, base2, base3 = generate_latent_signals(n)
     synthetic_forecasts = generate_synthetic_forecasts_from_hr(df_clean)
 
     # Add forecasts to the dataframe
@@ -419,6 +404,7 @@ def generate_forecasts_and_decompose(df):
     ica, ica_components = run_ica(df_clean, forecast_cols)
 
     evaluate_forecast_diversity(df_clean, interval='ME')
+    plot_error_direction(df_clean, forecast_cols, ModelSettings.target, resample_interval='M')
 
     plt.show()
     return df_clean, pca, pca_components, ica, ica_components
