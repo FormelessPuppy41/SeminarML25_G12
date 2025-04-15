@@ -70,7 +70,6 @@ def forecast_single_date_xgb(
     forecast_horizon,
     rolling_window_days,
     xgb_params,
-    datetime_col,
     freq
 ):
     """
@@ -84,7 +83,6 @@ def forecast_single_date_xgb(
         forecast_horizon: Forecast steps (default=96).
         rolling_window_days: Days to use for training.
         xgb_params: XGBoost model parameters.
-        datetime_col: Name of datetime column.
         freq: Data frequency.
 
     Returns:
@@ -202,7 +200,6 @@ def run_day_ahead_xgboost(
 
 def run_day_ahead_xgboost(
     df: pd.DataFrame,
-    # flag_matrix_df: pd.DataFrame,
     target_column: str,
     feature_columns: List[str],
     forecast_horizon: int = 96,
@@ -251,7 +248,6 @@ def run_day_ahead_xgboost(
                 forecast_horizon,
                 rolling_window_days,
                 xgb_params,
-                datetime_col,
                 freq
             ): forecast_date for forecast_date in forecast_dates[rolling_window_days:]
         }

@@ -4,22 +4,15 @@ Elastic Net regression model
 # imports:
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 
-from sklearn.linear_model import ElasticNet
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline
-from sklearn.linear_model import ElasticNet, Ridge, Lasso
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+from tqdm import tqdm  
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
-
-from configuration import ModelSettings, ModelParameters
+from configuration import ModelParameters
 
 from .utils import data_interpolate_prev, data_interpolate_fut, get_model_from_params
-
-from tqdm import tqdm  
-from joblib import Parallel, delayed
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
 
@@ -28,8 +21,7 @@ def run_elastic_net(
     test: pd.DataFrame,
     target: str,
     features: List[str],
-    params: Dict[str, Any],
-    l1_grid: bool = False
+    params: Dict[str, Any]
 ):
     """
     Run an Elastic Net regression model on test data using training data.
@@ -83,8 +75,7 @@ def run_elastic_net_adaptive(
     test: pd.DataFrame,
     target: str,
     features: List[str],
-    params: Dict[str, Any],
-    l1_grid: bool = False
+    params: Dict[str, Any]
 ):
     """
     Run an adaptive elastic net regression using initial coefficient estimates
@@ -133,7 +124,7 @@ def run_elastic_net_adaptive(
     # 4. Run the standard elastic net on the scaled data.
     # (Reuse your existing run_elastic_net function)
     pred_df, best_alpha, best_l1_ratio, coefs_scaled = run_elastic_net(
-        train_scaled, test_scaled, target, features, params, l1_grid
+        train_scaled, test_scaled, target, features, params
     )
     
     # 5. Adjust the coefficients back to their original scale.
@@ -142,82 +133,55 @@ def run_elastic_net_adaptive(
     return pred_df, best_alpha, best_l1_ratio, coefs
 
 
-# def run_day_ahead_elastic_net(
-#         df: pd.DataFrame, 
-#         target_column: str, 
-#         feature_columns: List[str], 
-#         forecast_horizon: int = 96, 
-#         rolling_window_days: int = 165, 
-#         enet_params: Dict[str, Any] = None, 
-#         datetime_col: str = 'datetime', 
-#         freq: str = '15min'
-#     ) -> pd.DataFrame:
-#     """
-#     Generate forecasts at 09:00 AM each morning for the next day (24 hourly forecasts).
-    
-#     Args:
-#         df: Full input data with datetime, target and features.
-#         #flag_matrix_df: DataFrame indicating which time/forecast combination is complete (0) or not.
-#         target_column: Column name of the target variable (e.g., 'HR').
-#         feature_columns: List of forecast provider feature columns.
-#         forecast_horizon: Number of forecast periods (default=24 for hourly forecasts).
-#         rolling_window_days: Number of days for the training window.
-#         enet_params: Elastic Net parameters (e.g. {'alpha': 1.0, 'l1_ratio': 0.5}).
-#         datetime_col: Name of the datetime column.
-#         freq: Sampling frequency (default='1H' for hourly).
-        
-#     Returns:
-#         pd.DataFrame with columns ['target_time', 'prediction', 'actual'].
-#     """
-#     if not enet_params:
-#         raise ValueError("Elastic Net parameters must be provided.")
-    
-#     if datetime_col not in df.columns:
-#         raise ValueError(f"'{datetime_col}' not found in DataFrame.")
-
-#     df = df.copy()
-#     df[datetime_col] = pd.to_datetime(df[datetime_col])
-#     forecast_results = []
-#     unique_dates = df[datetime_col].unique()
-#     forecast_dates = [pd.Timestamp(d) for d in unique_dates if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)]
-
-#     current_date_interpolator_prev = None
-#     current_date_interpolator_fut = None
-#     last_forecast_date = None
-
-#     for forecast_date in tqdm(forecast_dates[rolling_window_days:], desc="Forecasting dates"):
-#         print(f"Forecasting for date: {forecast_date}")
-#         forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
-#         if last_forecast_date is None or forecast_date != last_forecast_date:
-#             last_forecast_date = forecast_date
-#             current_date_interpolator_prev = data_interpolate_prev(df, forecast_date, rolling_window_days)
-#             current_date_interpolator_fut = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
-
-#         train_df = current_date_interpolator_prev
-#         test_df = current_date_interpolator_fut
-
-#         if train_df.empty or test_df.empty:
-#             continue
-
-#         for ts in test_df[ModelSettings.datetime_col]:
-#             row_df = test_df[test_df[ModelSettings.datetime_col] == ts]
-#             if row_df.empty:
-#                 continue
-#             pred_df, best_alpha, best_l1_ratio, coefs = run_elastic_net(train_df, row_df, target_column, feature_columns, enet_params)
-#             forecast_results.append({
-#                 'target_time': ts,
-#                 'prediction': pred_df['prediction'].values[0],
-#                 'actual': pred_df[target_column].values[0],
-#                 'best_alpha': best_alpha,
-#                 'best_l1_ratio': best_l1_ratio,
-#                 'coefs': coefs
-#             })
-
-#     return pd.DataFrame(forecast_results)
-
-
-
 def forecast_single_date(
+        forecast_date: pd.Timestamp,
+        df: pd.DataFrame,
+        target_column: str,
+        feature_columns: List[str],
+        forecast_horizon: int,
+        rolling_window_days: int,
+        enet_params: dict,
+        datetime_col: str,
+        freq: str
+    ):
+    return forecast_single_date_generic(
+        forecast_date,
+        df,
+        target_column,
+        feature_columns,
+        forecast_horizon,
+        rolling_window_days,
+        enet_params,
+        datetime_col,
+        freq,
+        run_elastic_net
+    )
+
+def forecast_single_date_adaptive(
+        forecast_date: pd.Timestamp,
+        df: pd.DataFrame,
+        target_column: str,
+        feature_columns: List[str],
+        forecast_horizon: int,
+        rolling_window_days: int,
+        enet_params: dict,
+        datetime_col: str,
+        freq: str
+    ):
+    return forecast_single_date_generic(
+        forecast_date,
+        df,
+        target_column,
+        feature_columns,
+        forecast_horizon,
+        rolling_window_days,
+        enet_params,
+        datetime_col,
+        freq,
+        run_elastic_net_adaptive
+    )
+
+def forecast_single_date_generic(
     forecast_date: pd.Timestamp,
     df: pd.DataFrame,
     target_column: str,
@@ -227,42 +191,33 @@ def forecast_single_date(
     enet_params: dict,
     datetime_col: str,
     freq: str,
-    l1_grid: bool = False
+    model_runner: Callable
 ):
     """
-    Forecasts a full 96-step next-day horizon by training once per day.
+    Generic function for forecasting a single date using a model runner.
 
     Args:
-        forecast_date: The date to forecast.
-        df: Full input data with datetime, target and features.
-        target_column: Column name of the target variable (e.g., 'HR').
-        feature_columns: List of forecast provider feature columns.
-        forecast_horizon: Number of forecast periods (default=24 for hourly forecasts).
-        rolling_window_days: Number of days for the training window.
-        enet_params: Elastic Net parameters (e.g. {'alpha': 1.0, 'l1_ratio': 0.5}).
-        datetime_col: Name of the datetime column.
-        freq: Sampling frequency (default='1H' for hourly).
+        model_runner: Function to train and apply the model (e.g., run_elastic_net).
 
     Returns:
-        List of dictionaries with forecast results for the specified date.
+        List of dictionaries with forecast results.
     """
     forecast_results_single = []
     forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
-    
+
     train_df = data_interpolate_prev(df, forecast_date, rolling_window_days)
     test_df = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
-    
+
     if train_df.empty or test_df.empty:
         return forecast_results_single
 
-    # Run the model ONCE for entire next-day test set
-    pred_df, best_alpha, best_l1_ratio, coefs = run_elastic_net(
-        train_df, test_df, target_column, feature_columns, enet_params, l1_grid
+    pred_df, best_alpha, best_l1_ratio, coefs = model_runner(
+        train_df, test_df, target_column, feature_columns, enet_params
     )
 
     for _, row in pred_df.iterrows():
         forecast_results_single.append({
-            'target_time': row[ModelSettings.datetime_col],
+            'target_time': row[datetime_col],  # use passed-in datetime_col, not ModelSettings
             'prediction': row['prediction'],
             'actual': row[target_column],
             'best_alpha': best_alpha,
@@ -271,7 +226,6 @@ def forecast_single_date(
         })
 
     return forecast_results_single
-
 
 
 def run_day_ahead_elastic_net(
@@ -282,111 +236,19 @@ def run_day_ahead_elastic_net(
         rolling_window_days: int = 165, 
         enet_params: Dict[str, Any] = None, 
         datetime_col: str = 'datetime', 
-        freq: str = '15min',
-        l1_grid: bool = False
+        freq: str = '15min'
     ) -> pd.DataFrame:
-    """
-    Generate forecasts at 09:00 AM each morning for the next day (24 hourly forecasts).
-    
-    Args:
-        df: Full input data with datetime, target and features.
-        #flag_matrix_df: DataFrame indicating which time/forecast combination is complete (0) or not.
-        target_column: Column name of the target variable (e.g., 'HR').
-        feature_columns: List of forecast provider feature columns.
-        forecast_horizon: Number of forecast periods (default=24 for hourly forecasts).
-        rolling_window_days: Number of days for the training window.
-        enet_params: Elastic Net parameters (e.g. {'alpha': 1.0, 'l1_ratio': 0.5}).
-        datetime_col: Name of the datetime column.
-        freq: Sampling frequency (default='1H' for hourly).
-        
-    Returns:
-        pd.DataFrame with columns ['target_time', 'prediction', 'actual'].
-    """
-    if not enet_params:
-        raise ValueError("Elastic Net parameters must be provided.")
-    
-    if datetime_col not in df.columns:
-        raise ValueError(f"'{datetime_col}' not found in DataFrame.")
-
-    df = df.copy()
-    df[datetime_col] = pd.to_datetime(df[datetime_col])
-    
-    forecast_results = []
-    unique_dates = df[datetime_col].unique()
-    # Select forecast dates based on your criteria (here, dates with hour==9 and minute==0)
-    forecast_dates = [
-        pd.Timestamp(d) for d in unique_dates 
-        if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)
-    ]
-    
-    # Submit jobs for all forecast dates beyond the rolling window period
-    with ProcessPoolExecutor() as executor:
-        futures = {
-            executor.submit(
-                forecast_single_date,
-                forecast_date,
-                df,
-                target_column,
-                feature_columns,
-                forecast_horizon,
-                rolling_window_days,
-                enet_params,
-                datetime_col,
-                freq,
-                l1_grid
-            ): forecast_date for forecast_date in forecast_dates[rolling_window_days:]
-        }
-        
-        # Optionally, use tqdm to track progress as futures complete
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Parallel forecasting"):
-            try:
-                result = future.result()  # each result is a list of forecasts for that date
-                forecast_results.extend(result)
-            except Exception as exc:
-                print(f"Forecasting for date {futures[future]} raised an exception: {exc}")
-        print('wauwzers, we are done!')
-    return pd.DataFrame(forecast_results)
-
-
-
-
-
-def forecast_single_date_adaptive(
-    forecast_date: pd.Timestamp,
-    df: pd.DataFrame,
-    target_column: str,
-    feature_columns: List[str],
-    forecast_horizon: int,
-    rolling_window_days: int,
-    enet_params: dict,
-    datetime_col: str,
-    freq: str,
-    l1_grid: bool = False
-):
-    forecast_results_single = []
-    forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
-
-    train_df = data_interpolate_prev(df, forecast_date, rolling_window_days)
-    test_df = data_interpolate_fut(df, forecast_start, forecast_horizon, freq=freq)
-
-    if train_df.empty or test_df.empty:
-        return forecast_results_single
-
-    pred_df, best_alpha, best_l1_ratio, coefs = run_elastic_net_adaptive(
-        train_df, test_df, target_column, feature_columns, enet_params, l1_grid
+    return run_day_ahead_forecasting(
+        df,
+        target_column,
+        feature_columns,
+        forecast_single_date,
+        forecast_horizon,
+        rolling_window_days,
+        enet_params,
+        datetime_col,
+        freq
     )
-
-    for _, row in pred_df.iterrows():
-        forecast_results_single.append({
-            'target_time': row[ModelSettings.datetime_col],
-            'prediction': row['prediction'],
-            'actual': row[target_column],
-            'best_alpha': best_alpha,
-            'best_l1_ratio': best_l1_ratio,
-            'coefs': coefs
-        })
-
-    return forecast_results_single
 
 def run_day_ahead_elastic_net_adaptive(
     df: pd.DataFrame,
@@ -396,8 +258,31 @@ def run_day_ahead_elastic_net_adaptive(
     rolling_window_days: int = 165,
     enet_params: Dict[str, Any] = None,
     datetime_col: str = 'datetime',
+    freq: str = '15min'
+) -> pd.DataFrame:
+    return run_day_ahead_forecasting(
+        df,
+        target_column,
+        feature_columns,
+        forecast_single_date_adaptive,
+        forecast_horizon,
+        rolling_window_days,
+        enet_params,
+        datetime_col,
+        freq
+    )
+
+def run_day_ahead_forecasting(
+    df: pd.DataFrame,
+    target_column: str,
+    feature_columns: List[str],
+    forecast_func: Callable,
+    forecast_horizon: int = 96,
+    rolling_window_days: int = 165,
+    enet_params: Dict[str, Any] = None,
+    datetime_col: str = 'datetime',
     freq: str = '15min',
-    l1_grid: bool = False
+    desc: str = "Forecasting"
 ) -> pd.DataFrame:
     if not enet_params:
         raise ValueError("Elastic Net parameters must be provided.")
@@ -406,19 +291,18 @@ def run_day_ahead_elastic_net_adaptive(
 
     df = df.copy()
     df[datetime_col] = pd.to_datetime(df[datetime_col])
-
+    
     forecast_results = []
-    unique_dates = df[datetime_col].unique()
     forecast_dates = [
-        pd.Timestamp(d) for d in unique_dates 
-        if (pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0)
+        d for d in df[datetime_col].unique()
+        if pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0
     ]
-
+    
     with ProcessPoolExecutor() as executor:
         futures = {
             executor.submit(
-                forecast_single_date_adaptive,
-                forecast_date,
+                forecast_func,
+                pd.Timestamp(forecast_date),
                 df,
                 target_column,
                 feature_columns,
@@ -426,20 +310,17 @@ def run_day_ahead_elastic_net_adaptive(
                 rolling_window_days,
                 enet_params,
                 datetime_col,
-                freq,
-                l1_grid
+                freq
             ): forecast_date for forecast_date in forecast_dates[rolling_window_days:]
         }
 
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Adaptive forecasting"):
+        for future in tqdm(as_completed(futures), total=len(futures), desc=desc):
             try:
                 result = future.result()
                 forecast_results.extend(result)
             except Exception as exc:
-                print(f"Adaptive forecasting for date {futures[future]} failed: {exc}")
-
-        print("Adaptive elastic net forecasting complete.")
+                print(f"Forecasting failed for {futures[future]}: {exc}")
     
+    print("Forecasting complete.")
     return pd.DataFrame(forecast_results)
-
 

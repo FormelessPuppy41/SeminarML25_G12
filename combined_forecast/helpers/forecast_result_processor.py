@@ -15,7 +15,6 @@ class ForecastResultProcessor:
     Input: 
         - dataframe: contains ['target_time', 'actual', 'prediction', 'best_params' (optional)] columns
     """
-
     def __init__(self, dataframe: Optional[pd.DataFrame] = None):
         self.df = dataframe.copy() if dataframe is not None else None
 

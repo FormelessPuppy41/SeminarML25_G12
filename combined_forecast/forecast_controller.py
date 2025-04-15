@@ -58,7 +58,6 @@ class ForecastController:
         # Initialize forecast runner
         self._forecast_runner = ForecastRunner(
             df=self._df,
-            #flag_matrix_df=self._flag_matrix_df,
             target=self._target,
             features=self._features,
             forecast_horizon=self._forecast_horizon,
