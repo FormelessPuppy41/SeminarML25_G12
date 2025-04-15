@@ -47,27 +47,230 @@ def generate_latent_signals(length, seed=42):
     return base1, base2, base3
 
 # ---------- Step 3: Create Synthetic Forecasts ----------
+def generate_deviations(length: np.ndarray, hr: np.ndarray, residuals: np.ndarray, daylight_mask: np.ndarray, scale=1, seed=42):
+    np.random.seed(seed)
+    t = np.linspace(0, 2 * np.pi, length)
+
+    # Define base deviation patterns (scaled unitless multipliers)
+    dev1 = scale * 0.6 * np.sin(3 * t)                            # Diurnal bias
+    dev2 = scale * 0.15 * np.random.normal(0, 1, length)           # Random noise
+    dev3 = scale * 0.4 * np.cos(1.5 * t + np.pi / 3)              # Seasonal-ish bias
+    dev4 = scale * 0.3 * residuals / (np.max(np.abs(residuals)) + 1e-6)  # Scaled error feedback
+    dev5 = scale * 0.2 * residuals / (np.mean(hr[daylight_mask]) + 1e-6)  # Relative error signal
+
+    # Apply only during daylight
+    for dev in [dev1, dev2, dev3, dev4, dev5]:
+        dev[~daylight_mask] = 0
+
+    deviations = {
+        "dev1_sin": dev1,
+        "dev2_noise": dev2,
+        "dev3_cos": dev3,
+        "dev4_k_minus_hr_scaled": dev4,
+        "dev5_relative_k_bias": dev5
+    }
+
+    # Log summaries
+    print("\n--- Deviation Stats ---")
+    for name, dev in deviations.items():
+        print(f"{name}: mean={np.mean(dev):.4f}, std={np.std(dev):.4f}, min={np.min(dev):.4f}, max={np.max(dev):.4f}")
+
+    return deviations
+
+def apply_structural_bias(
+    forecast: np.ndarray,
+    index: int,
+    t: np.ndarray,
+    residuals: np.ndarray,
+    bias_mask: np.ndarray
+):
+    if not bias_mask.any():
+        return forecast
+
+    biased = forecast.copy()
+    
+    if index == 0:
+        return forecast
+    elif index == 1:
+        biased = np.roll(forecast, 2)
+    elif index == 2:
+        hour = (t % 24)
+        bias = np.where((hour >= 6) & (hour <= 10), 1.1, 1.0)
+        biased = forecast * bias
+    elif index == 3:
+        biased = forecast * 0.95
+    elif index == 4:
+        hour = (t % 24)
+        spike = np.where((hour >= 11) & (hour <= 14), np.random.normal(1.1, 0.05, len(forecast)), 1.0)
+        biased = forecast * spike
+    elif index == 5:
+        pattern = np.where(residuals > 0, 0.95, 1.05)
+        biased = forecast * pattern
+    else:
+        return forecast
+
+    # Only apply when the mask is active
+    return np.where(bias_mask, biased, forecast)
+
+def generate_bias_activation_masks(index: pd.DatetimeIndex, n_forecasts: int, block="W", seed=42):
+    """
+    For each forecast, randomly select time blocks (weeks, months, etc.) where structural bias is active.
+    """
+    np.random.seed(seed)
+    df = pd.DataFrame(index=index)
+    df["block"] = index.to_period(block)
+
+    blocks = df["block"].unique()
+    mask_dict = {}
+
+    for i in range(n_forecasts):
+        n_active = max(1, len(blocks) // 3)  # e.g., ~33% of weeks/months active
+        active_blocks = np.random.choice(blocks, size=n_active, replace=False)
+        df[f"bias_active_{i}"] = df["block"].isin(active_blocks).values
+
+    return {i: df[f"bias_active_{i}"].values for i in range(n_forecasts)}
+
+
 def generate_synthetic_forecasts_from_hr(df: pd.DataFrame, seed=42):
     np.random.seed(seed)
     hr = df[ModelSettings.target].values
-    length = len(hr)
-
+    k = df['K'].values
+    residuals = k - hr
+    mid_hr_and_k = (hr + k) / 2
     daylight_mask = hr > 0
+
+    # Estimate base error scale (or define manually)
+    k_day = k[daylight_mask]
+    hr_day = hr[daylight_mask]
+    observed_mape = np.mean(np.abs(k_day - hr_day) / (hr_day + 1e-6))
+    target_scale = observed_mape  # Or use fixed value, e.g., 0.15
+
+    deviations = generate_deviations(length=len(df), hr=hr, residuals=residuals, daylight_mask=daylight_mask, scale=target_scale, seed=seed)
+
+    # Weighted combinations to create forecasts
+    weights_list = [
+    {
+        "dev1_sin": 0.20,
+        "dev2_noise": 0.40,
+        "dev3_cos": 0.20,
+        "dev4_k_minus_hr_scaled": 0.10,
+        "dev5_relative_k_bias": 0.10
+    },
+    {
+        "dev1_sin": 0.20,
+        "dev2_noise": 0.35,
+        "dev3_cos": 0.15,
+        "dev4_k_minus_hr_scaled": 0.15,
+        "dev5_relative_k_bias": 0.15
+    },
+    {
+        "dev1_sin": 0.10,
+        "dev2_noise": 0.40,
+        "dev3_cos": 0.25,
+        "dev4_k_minus_hr_scaled": 0.10,
+        "dev5_relative_k_bias": 0.15
+    },
+    {
+        "dev1_sin": 0.30,
+        "dev2_noise": 0.35,
+        "dev3_cos": 0.15,
+        "dev4_k_minus_hr_scaled": 0.15,
+        "dev5_relative_k_bias": 0.05
+    },
+    {
+        "dev1_sin": 0.20,
+        "dev2_noise": 0.40,  # increase
+        "dev3_cos": 0.15,
+        "dev4_k_minus_hr_scaled": 0.15,
+        "dev5_relative_k_bias": 0.10
+    },
+    {
+        "dev1_sin": 0.15,
+        "dev2_noise": 0.40,  # increase more
+        "dev3_cos": 0.15,
+        "dev4_k_minus_hr_scaled": 0.15,
+        "dev5_relative_k_bias": 0.15
+    }
+
+    ]
+    # Generate structural bias activation masks (e.g., weekly)
+    bias_masks = generate_bias_activation_masks(df.index, n_forecasts=6, block="W", seed=seed)
+
+    forecasts = []
+    t = df.index.to_series().dt.hour.values
+
+    scaler = {
+        1: mid_hr_and_k,
+        2: mid_hr_and_k,
+        3: hr, # always best -> add more noise bcs currently the others automatically have more noise, bcs they are bias by not using HR. 
+        4: hr, # always best -> add more noise bcs currently the others automatically have more noise, bcs they are bias by not using HR. 
+        5: k,
+        6: k
+    }
+    deviation_multiplier = {
+        1: 0.8,
+        2: 0.6,
+        3: 2.5,
+        4: 2.0,
+        5: 0.4,
+        6: 0.3
+    }
+    for i, weight_dict in enumerate(weights_list):
+        total_deviation = deviation_multiplier.get(i+1) * sum(
+            weight * deviations[name] for name, weight in weight_dict.items()
+        )
+        
+        forecast = scaler.get(i+1) * (1 + total_deviation)
+        forecast = apply_structural_bias(forecast, i, t, residuals, bias_masks[i])
+        forecast = np.clip(forecast, 0, None)
+        forecasts.append(forecast)
+
+    forecasts = np.array(forecasts).T  # (time, 6)
+
+    def forecast_evalutation():
+        # Evaluation
+        print("\n--- Forecast Evaluation ---")
+        print(f"Observed MAPE from K: {observed_mape:.2%}\n")
+        for i in range(6):
+            mae = np.mean(np.abs((forecasts[:, i] - hr)[daylight_mask]))
+            mape = np.mean(np.abs((forecasts[:, i] - hr)[daylight_mask] / (hr[daylight_mask] + 1e-6)))
+            print(f"A{i+1}: MAE={mae:.2f}, MAPE={mape:.2%}")
+    forecast_evalutation()
+    
+    return forecasts
+
+
+"""
+def generate_synthetic_forecasts_from_hr(df: pd.DataFrame, seed=42):
+    np.random.seed(seed)
+    k_array = df['K'].values
+    hr = df[ModelSettings.target].values
+    length = len(k_array)
+
+    hr_daylight_mask = hr > 0
+    k_daylight_mask = k_array > 0
+    hr_day = df.loc[hr_daylight_mask, ModelSettings.target]
+    k_day = df.loc[hr_daylight_mask, 'K']
+
+    mape = np.mean(np.abs(k_day - hr_day) / hr_day)
 
     # Time index for structured patterns
     t = np.linspace(0, 2 * np.pi, length)
 
     # Generate structured deviations
-    dev1 = 0.05 * np.sin(3 * t)                          # daily pattern bias
-    dev2 = 0.1 * np.random.normal(0, 1, length)          # random noise
-    dev3 = 0.15 * np.cos(1.5 * t + np.pi / 3)            # phase-shifted seasonal-ish trend
+    dev1 = 0.65 * np.sin(3 * t)                          # daily pattern bias
+    dev2 = 0.35 * np.random.normal(0, 1, length)         # random noise
+    dev3 = 0.65 * np.cos(1.5 * t + np.pi / 3)            # phase-shifted seasonal-ish trend
     
-    print(dev1, dev2, dev3)
-    raise ValueError
-    # Only apply deviations where HR > 0 (daylight hours)
-    dev1[~daylight_mask] = 0
-    dev2[~daylight_mask] = 0
-    dev3[~daylight_mask] = 0
+    # Descripe deviations:
+    print(f"Dev1: mean={np.mean(dev1):.4f}, std={np.std(dev1):.4f}, min={np.min(dev1):.4f}, max={np.max(dev1):.4f}")
+    print(f"Dev2: mean={np.mean(dev2):.4f}, std={np.std(dev2):.4f}, min={np.min(dev2):.4f}, max={np.max(dev2):.4f}")
+    print(f"Dev3: mean={np.mean(dev3):.4f}, std={np.std(dev3):.4f}, min={np.min(dev3):.4f}, max={np.max(dev3):.4f}")
+    
+    # Only apply deviations where K > 0 (daylight hours forecasted)
+    dev1[~k_daylight_mask] = 0
+    dev2[~k_daylight_mask] = 0
+    dev3[~k_daylight_mask] = 0
 
     forecasts = []
     weights = [
@@ -85,8 +288,18 @@ def generate_synthetic_forecasts_from_hr(df: pd.DataFrame, seed=42):
         forecast = np.clip(forecast, 0, None)
         forecasts.append(forecast)
 
-    return np.array(forecasts).T  # shape: (time, 6)
+    forecasts = np.array(forecasts).T  # shape: (time, 6)
 
+    # Calculate MAE and MAPE for each forecast
+    print("\n--- Forecast Evaluation ---")
+    print(f"Initial MAPE: {mape:.2%}")
+    for i in range(6):
+        mae = np.mean(np.abs((forecasts[:, i] - hr)[hr_daylight_mask]))
+        mape = np.mean(np.abs((forecasts[:, i] - hr)[hr_daylight_mask] / hr[hr_daylight_mask]))
+        print(f"A{i+1}: MAE={mae:.3f}, MAPE={mape:.2%}")
+
+    return forecasts
+"""
 
 # ---------- Step 4: Perform PCA ----------
 def run_pca(df: pd.DataFrame, forecast_cols):
@@ -101,8 +314,12 @@ def run_pca(df: pd.DataFrame, forecast_cols):
         print(f"Component {i+1}: {var:.4f}")
 
     plt.figure()
-    plt.plot(np.cumsum(pca.explained_variance_ratio_), marker='o')
-    plt.xlabel('Number of Components')
+    explained = np.cumsum(pca.explained_variance_ratio_)
+    x_vals = np.arange(1, len(explained) + 1)  # 1-based indexing
+
+    plt.plot(x_vals, explained, marker='o')
+    plt.xticks(x_vals)  # explicitly set ticks to 1, 2, ..., n
+    plt.xlabel('Component')
     plt.ylabel('Cumulative Explained Variance')
     plt.title('PCA Scree Plot')
     plt.grid(True)
@@ -216,6 +433,5 @@ if __name__ == "__main__":
     df = data_loader.load_input_data(file_names.input_files.solar_combined_data, True)
 
     df_clean, pca, pca_components, ica, ica_components = generate_forecasts_and_decompose(df)
-    print(df_clean)
     print(df_clean[25:50])
     df_clean.to_csv('test_data.csv')
