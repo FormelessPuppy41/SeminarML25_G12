@@ -58,7 +58,7 @@ def run_elastic_net(
     if "l1_ratio" in model.named_steps[step_name].get_params():
         param_grid[f"{step_name}__l1_ratio"] = l1_ratio_grid
 
-    tscv = TimeSeriesSplit(n_splits=3)
+    tscv = TimeSeriesSplit(n_splits=5)
     gs = GridSearchCV(model, param_grid, cv=tscv, scoring='neg_mean_squared_error')
     gs.fit(train[features], train[target])
 
@@ -77,92 +77,8 @@ def run_elastic_net(
     return test, best_alpha, best_l1_ratio, coefs
 
 
-def compute_initial_estimates(
-    train: pd.DataFrame, 
-    target: str, 
-    features: List[str], 
-    ridge_params: Dict[str, Any]
-) -> np.ndarray:
-    """
-    Compute initial coefficient estimates using Ridge regression.
-    
-    Args:
-        train: Training data as a DataFrame.
-        target: Name of the target column.
-        features: List of feature column names.
-        ridge_params: Parameters for the Ridge model.
-        
-    Returns:
-        A numpy array of initial coefficient estimates.
-    """
-    ridge_model = get_model_from_params(ridge_params)
-    ridge_model.fit(train[features], train[target])
-    # Get the estimator in the pipeline (assumed to be the final step)
-    final_estimator = ridge_model.named_steps[list(ridge_model.named_steps)[-1]]
-    return final_estimator.coef_
 
-def compute_adaptive_weights(
-    beta_init: np.ndarray, 
-    gamma: float = 1.0, 
-    epsilon: float = 1e-6
-) -> np.ndarray:
-    """
-    Compute the adaptive weights given the initial coefficients.
-    
-    The weights are computed as: 
-        weights_j = 1 / ( |beta_init_j|^gamma + epsilon )
-    
-    Args:
-        beta_init: Initial coefficient estimates.
-        gamma: Exponent parameter (default 1.0).
-        epsilon: Small constant to avoid division by zero (default 1e-6).
-        
-    Returns:
-        A numpy array of adaptive weights.
-    """
-    return 1.0 / (np.abs(beta_init) ** gamma + epsilon)
 
-def scale_features(
-    df: pd.DataFrame, 
-    features: List[str], 
-    weights: np.ndarray
-) -> pd.DataFrame:
-    """
-    Scale feature columns in the DataFrame by dividing each by its respective weight.
-    
-    Args:
-        df: Input DataFrame.
-        features: List of feature column names.
-        weights: Adaptive weights for each feature.
-        
-    Returns:
-        A new DataFrame with scaled features.
-    """
-    df_scaled = df.copy()
-    # Scale each feature column using the corresponding weight
-    for i, col in enumerate(features):
-        df_scaled[col] = df_scaled[col] / weights[i]
-    return df_scaled
-
-def adjust_coefficients(
-    coefs_scaled: np.ndarray, 
-    weights: np.ndarray
-) -> np.ndarray:
-    """
-    Adjust the coefficients estimated on the scaled data back to the original scale.
-    
-    Since each input was scaled as x_j / w_j,
-    the original coefficient is given by:
-        beta_j = beta_j^(scaled) / w_j.
-    
-    Args:
-        coefs_scaled: Coefficients from the elastic net run on scaled data.
-        weights: The adaptive weights used to scale the features.
-        
-    Returns:
-        Coefficients adjusted back to the original scale.
-    """
-    return coefs_scaled / weights
 
 def run_elastic_net_adaptive(
     train: pd.DataFrame,
@@ -192,16 +108,41 @@ def run_elastic_net_adaptive(
     Returns:
         A tuple: (predicted test DataFrame, best_alpha, best_l1_ratio, adjusted coefficients)
     """
+    def scale_features(
+        df: pd.DataFrame, 
+        features: List[str], 
+        weights: np.ndarray
+    ) -> pd.DataFrame:
+        """
+        Scale feature columns in the DataFrame by dividing each by its respective weight.
+        
+        Args:
+            df: Input DataFrame.
+            features: List of feature column names.
+            weights: Adaptive weights for each feature.
+            
+        Returns:
+            A new DataFrame with scaled features.
+        """
+        df_scaled = df.copy()
+        # Scale each feature column using the corresponding weight
+        for i, col in enumerate(features):
+            df_scaled[col] = df_scaled[col] / weights[i]
+        return df_scaled
     gamma = params.get("gamma", 1.0)
     epsilon = params.get("epsilon", 1e-6)
     # Use provided ridge parameters or default from ModelParameters
-    ridge_params = params.get("ridge_params", ModelParameters.ridge_params)
+    ridge_params = ModelParameters.ridge_params
     
     # 1. Compute initial estimates with Ridge regression.
-    beta_init = compute_initial_estimates(train, target, features, ridge_params)
+    ridge_model = get_model_from_params(ridge_params)
+    ridge_model.fit(train[features], train[target])
+    # Get the estimator in the pipeline (assumed to be the final step)
+    final_estimator = ridge_model.named_steps[list(ridge_model.named_steps)[-1]]
+    beta_init =  final_estimator.coef_
     
     # 2. Compute adaptive weights.
-    weights = compute_adaptive_weights(beta_init, gamma, epsilon)
+    weights = 1.0 / (np.abs(beta_init) ** gamma + epsilon)
     
     # 3. Scale the features using the adaptive weights.
     train_scaled = scale_features(train, features, weights)
@@ -213,7 +154,7 @@ def run_elastic_net_adaptive(
     )
     
     # 5. Adjust coefficients back to the original feature scale.
-    coefs = adjust_coefficients(coefs_scaled, weights)
+    coefs = coefs_scaled / weights
     
     return pred_df, best_alpha, best_l1_ratio, coefs
 

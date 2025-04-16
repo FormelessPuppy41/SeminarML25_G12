@@ -37,12 +37,12 @@ class ModelParameters:
 
     elastic_net_params = {
         'alpha_grid': [0.01, 0.1, 1.0, 10.0], #[0.01, 0.1, 1.0, 10.0], 
-        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1.0], # [0.5]
+        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
     }
 
     adaptive_elastic_net_params = {
         'alpha_grid': [0.01, 0.1, 1.0, 10.0],
-        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1.0], # [0.5]
+        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
         'gamma_grid': [1.0]
     }
 
@@ -71,10 +71,10 @@ class ModelSettings:
     """
     target = 'HR'
     features = ["A1", "A2", "A3", "A4", "A5", "A6"]
-    forecast_horizon = 24
-    rolling_window_days = 60
+    forecast_horizon = 96 # 96 for 15min, 24 for 1H
+    rolling_window_days = 165 # 165 own data, 30 or 61 for other paper. 
     datetime_col = 'datetime'
-    freq = '1H' #'1H' #'15min' or '1H'
+    freq = '15min' #'15min' or '1H'
 
 
 @dataclass
