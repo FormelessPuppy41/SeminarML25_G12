@@ -12,7 +12,6 @@ import numpy as np
 from combined_forecast.forecast_controller import ForecastController
 from combined_forecast.forecast_result_controller import ForecastResultController
 from data.data_loader import DataLoader
-#from data.flagMatrix import run_flag_matrix
 
 from configuration import ModelSettings, FileNames
 
@@ -29,12 +28,12 @@ file_names = FileNames()
 def run_models():
     model_settings = ModelSettings()
 
-    df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
+    df = DataLoader().load_input_data(file_names.input_files.data_different_group)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     print(df)
-    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('07-20-2013')]
+    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2018')]
     #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2014')]
-    #print(df.head())
+    #print(df)
 
     forecast_controller = ForecastController(
             df=df, 
@@ -47,7 +46,9 @@ def run_models():
         )
     
     forecast_controller.forecast_elastic_net()
-    #forecast_controller.forecast_adaptive_elastic_net()
+    forecast_controller.forecast_ridge()
+    forecast_controller.forecast_lasso()
+    forecast_controller.forecast_adaptive_elastic_net()
 
 
 
@@ -56,13 +57,16 @@ def run_results(file_name: str):
     forecast_result_processor.compute_metrics(file_name)
 
 if __name__ == "__main__":
-    #run_flag_matrix()
     run_models() 
+    
     print("RUNNING ELASTIC NET RESULTS")
     run_results(file_names.model_result_files.elastic_net_forecast)
     
-    #print("\n\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
-    #run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
-    #run_models()
-    #run_results(file_names.model_result_files.ridge_forecast)
+    print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
+    run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
 
+    print("\n\nRUNNING LASSO RESULTS")
+    run_results(file_names.model_result_files.lasso_forecast)
+
+    print("\n\nRUNNING RIDGE RESULTS")
+    run_results(file_names.model_result_files.ridge_forecast)

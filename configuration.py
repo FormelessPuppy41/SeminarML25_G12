@@ -26,23 +26,23 @@ class ModelParameters:
     # np.linspace(0.1, 1, 10)
     # [0.1, 1.0, 10.0]
     ridge_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 2.0, 10.0],  # drop plain 'alpha' if grid is used
+        'alpha_grid': [0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
         'l1_ratio_grid': [0.0],           # Only one value: ridge behavior
     }
 
     lasso_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 2.0, 10.0], #np.linspace(0.1, 2, 10),
+        'alpha_grid': [0.01, 0.1, 1.0, 10.0], #np.linspace(0.1, 2, 10),
         'l1_ratio_grid': [1.0],           # Only one value: lasso behavior
     }
 
     elastic_net_params = {
-        'alpha_grid': np.linspace(0.1, 1, 10), #[0.01, 0.1, 1.0, 10.0], 
-        'l1_ratio_grid': [0.5] #[1e-6, 0.25, 0.5, 0.75, 1.0],
+        'alpha_grid': [0.01, 0.1, 1.0, 10.0], #[0.01, 0.1, 1.0, 10.0], 
+        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1.0], # [0.5]
     }
 
     adaptive_elastic_net_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 2.0, 10.0],
-        'l1_ratio_grid': [1e-6, 0.25, 0.5, 0.75, 1.0],
+        'alpha_grid': [0.01, 0.1, 1.0, 10.0],
+        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1.0], # [0.5]
         'gamma_grid': [1.0]
     }
 
@@ -71,10 +71,10 @@ class ModelSettings:
     """
     target = 'HR'
     features = ["A1", "A2", "A3", "A4", "A5", "A6"]
-    forecast_horizon = 96
-    rolling_window_days = 165
+    forecast_horizon = 24
+    rolling_window_days = 60
     datetime_col = 'datetime'
-    freq = '15min' #'1H' #'15min' or '1H'
+    freq = '1H' #'1H' #'15min' or '1H'
 
 
 @dataclass

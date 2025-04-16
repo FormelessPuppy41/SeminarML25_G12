@@ -50,7 +50,7 @@ class ForecastResultController:
         This method is used to compute the metrics for the forecast results.
         """
         result_df = DataLoader().load_model_results(file_name)
-        ic(result_df.head())
+        print(f"Shape of DF: {result_df.shape}")
         print(compute_yearly_rmse(result_df))
         forecast_result_processor = ForecastResultProcessor(result_df)
         ic(forecast_result_processor.compute_metrics())

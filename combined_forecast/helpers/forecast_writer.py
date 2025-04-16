@@ -26,4 +26,10 @@ class ForecastWriter:
             file_name (str): The file_name for the data to write the forecast to 'data/data_files/model_results'.
         """
         path = f'{self.path}/{file_name}'
+        try:
+            forecast = forecast.sort_values(by=['target_time'])
+            print(f"DF Contains duplicates: {forecast.duplicated(subset=['target_time']).any()}")
+            print(f"DF Shape: {forecast.shape}")
+        except:
+            pass
         forecast.to_csv(path, index=False)

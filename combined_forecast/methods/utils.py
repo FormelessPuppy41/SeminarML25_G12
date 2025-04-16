@@ -14,7 +14,7 @@ def tune_model_with_gridsearch(pipeline, param_grid, X_train, y_train, grid_para
     return grid
 
 
-def get_model_from_params(params: dict):
+def get_model_from_params(params: dict, adaptive: bool = False):
     # Determine alpha
     if "alpha_grid" in params:
         alpha_grid = params["alpha_grid"]
@@ -44,15 +44,17 @@ def get_model_from_params(params: dict):
         model = Lasso(alpha=alpha, random_state=random_state, max_iter=10000)
     else:
         # For other cases (including when multiple values are provided) default to ElasticNet.
-        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000, random_state=random_state)
+        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=random_state, max_iter=10000)
 
+    if adaptive:
+        return make_pipeline(model)
+    #return make_pipeline(model)
     return make_pipeline(StandardScaler(), model)
 
 
 
 def data_interpolate_prev(
         raw_df: pd.DataFrame, 
-        #indicator_df: pd.DataFrame, 
         current_date: pd.Timestamp, 
         rolling_window_days: int = 165
     ) -> pd.DataFrame:
@@ -61,7 +63,6 @@ def data_interpolate_prev(
 
     Args:
         raw_df (pd.DataFrame): The raw input data -> df(time, HR, forecasts)
-        #indicator_df (pd.DataFrame): The indicator data, indicting which time/fcst combination has either 0 (complete), or other value.
         current_date (pd.Timestamp): The current date.
 
     Returns:
@@ -105,7 +106,6 @@ def data_interpolate_fut(
 
     Args:
         raw_df (pd.DataFrame): The raw input data -> df(time, HR, forecasts)
-        indicator_df (pd.DataFrame): The indicator data, indicting which time/fcst combination has either 0 (complete), or other value.
         current_date (pd.Timestamp): The current date.  
         forecast_horizon (int, optional): _description_. Defaults to 24.
         freq (str, optional): _description_. Defaults to '15min'.
@@ -143,3 +143,77 @@ def data_interpolate_fut(
         interpolated_df[col] = interpolated_df[col].fillna(0)
 
     return interpolated_df
+
+
+# def data_interpolate_prev(
+#         raw_df: pd.DataFrame, 
+#         #indicator_df: pd.DataFrame, 
+#         current_date: pd.Timestamp, 
+#         rolling_window_days: int = 165
+#     ) -> pd.DataFrame:
+#     """
+#     Returns the training data for the previous rolling window, dropping rows with missing HR values.
+
+#     Args:
+#         raw_df (pd.DataFrame): The raw input data with columns for time, HR, and forecasts.
+#         current_date (pd.Timestamp): The current date.
+
+#     Returns:
+#         pd.DataFrame: The subset of data for the rolling window with rows missing HR dropped.
+#     """
+#     if not isinstance(current_date, pd.Timestamp):
+#         current_date = pd.Timestamp(current_date)
+
+#     # Define time window using the datetime column from raw_df
+#     start_date = current_date - pd.Timedelta(days=rolling_window_days)
+#     end_date = current_date
+#     mask = (raw_df[ModelSettings.datetime_col] >= start_date) & \
+#            (raw_df[ModelSettings.datetime_col] <= end_date)
+#     working_df = raw_df.loc[mask].copy()
+
+#     # Drop rows with missing HR (target) values
+#     working_df = working_df.dropna(subset=[ModelSettings.target])
+    
+#     return working_df
+
+
+# def data_interpolate_fut(
+#         raw_df: pd.DataFrame,
+#         current_date: pd.Timestamp,
+#         forecast_horizon: int = 96,
+#         freq: str = '15min'
+#     ) -> pd.DataFrame:
+#     """
+#     Returns the forecast horizon data by extracting the data between start_date and end_date,
+#     and dropping rows with missing HR values rather than interpolating.
+
+#     Args:
+#         raw_df (pd.DataFrame): The raw input data with columns for time, HR, and forecasts.
+#         current_date (pd.Timestamp): The starting date for the forecast horizon.
+#         forecast_horizon (int, optional): Number of forecast periods (defaults to 96).
+#         freq (str, optional): Data frequency ('15min' or '1H') (defaults to '15min').
+
+#     Returns:
+#         pd.DataFrame: The subset of future data with rows missing HR dropped.
+#     """
+#     if not isinstance(current_date, pd.Timestamp):
+#         current_date = pd.Timestamp(current_date)
+
+#     # Determine time delta based on frequency
+#     if freq == '1H':
+#         delta = pd.Timedelta(hours=1)
+#     else:
+#         delta = pd.Timedelta(minutes=int(freq.replace('min', '')))
+
+#     start_date = current_date
+#     end_date = current_date + delta * (forecast_horizon - 1)
+#     mask = (raw_df[ModelSettings.datetime_col] >= start_date) & \
+#            (raw_df[ModelSettings.datetime_col] <= end_date)
+#     working_df = raw_df.loc[mask].copy()
+
+#     # Drop rows with missing HR (target) values
+#     working_df = working_df.dropna(subset=[ModelSettings.target])
+
+#     return working_df
+
+

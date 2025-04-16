@@ -39,7 +39,6 @@ def run_ridge(
 
 def run_day_ahead_ridge(
     df: pd.DataFrame,
-    #flag_matrix_df: pd.DataFrame,
     target_column: str,
     feature_columns: List[str],
     forecast_horizon: int = 96,

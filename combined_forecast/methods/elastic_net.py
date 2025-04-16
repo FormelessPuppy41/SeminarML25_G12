@@ -4,7 +4,7 @@ Elastic Net regression model
 # imports:
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any, Callable, Tuple
 
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from tqdm import tqdm  
@@ -21,7 +21,8 @@ def run_elastic_net(
     test: pd.DataFrame,
     target: str,
     features: List[str],
-    params: Dict[str, Any]
+    params: Dict[str, Any],
+    adaptive: bool = False
 ):
     """
     Run an Elastic Net regression model on test data using training data.
@@ -35,6 +36,7 @@ def run_elastic_net(
         features (List[str]): List of feature column names.
         params (Dict[str, Any]): Parameters for the model. It can include 'alpha', 'l1_ratio',
                                  'random_state', and optionally 'alpha_grid' (a list of alphas).
+        adaptive (bool): If True, run the adaptive elastic net. Default is False.
     
     Returns:
         pd.DataFrame: Test set with predictions added in 'prediction' column.
@@ -48,7 +50,7 @@ def run_elastic_net(
     l1_ratio_grid = local_params.pop('l1_ratio_grid')
     
     # Build the model from the provided parameters (this determines model type)
-    model = get_model_from_params(params)
+    model = get_model_from_params(params, adaptive=adaptive)
     step_name = model.steps[-1][0]
 
     # Create the grid - add l1_ratio only if the estimator supports it.
@@ -56,7 +58,7 @@ def run_elastic_net(
     if "l1_ratio" in model.named_steps[step_name].get_params():
         param_grid[f"{step_name}__l1_ratio"] = l1_ratio_grid
 
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = TimeSeriesSplit(n_splits=3)
     gs = GridSearchCV(model, param_grid, cv=tscv, scoring='neg_mean_squared_error')
     gs.fit(train[features], train[target])
 
@@ -70,22 +72,97 @@ def run_elastic_net(
     intercept = best_model.named_steps[step_name].intercept_
 
     # Print relevant information
-    
-    """
-    print("Feature matrix X (test[features]):")
-    print(test[features])
-    print("\nCoefficients (beta):")
-    print(coefs)
-    print("\nIntercept:")
-    print(intercept)
-    print("\nForecasted values (predictions):")
-    print(predictions)
-    """
-    
-
     test = test.copy()
     test['prediction'] = predictions
     return test, best_alpha, best_l1_ratio, coefs
+
+
+def compute_initial_estimates(
+    train: pd.DataFrame, 
+    target: str, 
+    features: List[str], 
+    ridge_params: Dict[str, Any]
+) -> np.ndarray:
+    """
+    Compute initial coefficient estimates using Ridge regression.
+    
+    Args:
+        train: Training data as a DataFrame.
+        target: Name of the target column.
+        features: List of feature column names.
+        ridge_params: Parameters for the Ridge model.
+        
+    Returns:
+        A numpy array of initial coefficient estimates.
+    """
+    ridge_model = get_model_from_params(ridge_params)
+    ridge_model.fit(train[features], train[target])
+    # Get the estimator in the pipeline (assumed to be the final step)
+    final_estimator = ridge_model.named_steps[list(ridge_model.named_steps)[-1]]
+    return final_estimator.coef_
+
+def compute_adaptive_weights(
+    beta_init: np.ndarray, 
+    gamma: float = 1.0, 
+    epsilon: float = 1e-6
+) -> np.ndarray:
+    """
+    Compute the adaptive weights given the initial coefficients.
+    
+    The weights are computed as: 
+        weights_j = 1 / ( |beta_init_j|^gamma + epsilon )
+    
+    Args:
+        beta_init: Initial coefficient estimates.
+        gamma: Exponent parameter (default 1.0).
+        epsilon: Small constant to avoid division by zero (default 1e-6).
+        
+    Returns:
+        A numpy array of adaptive weights.
+    """
+    return 1.0 / (np.abs(beta_init) ** gamma + epsilon)
+
+def scale_features(
+    df: pd.DataFrame, 
+    features: List[str], 
+    weights: np.ndarray
+) -> pd.DataFrame:
+    """
+    Scale feature columns in the DataFrame by dividing each by its respective weight.
+    
+    Args:
+        df: Input DataFrame.
+        features: List of feature column names.
+        weights: Adaptive weights for each feature.
+        
+    Returns:
+        A new DataFrame with scaled features.
+    """
+    df_scaled = df.copy()
+    # Scale each feature column using the corresponding weight
+    for i, col in enumerate(features):
+        df_scaled[col] = df_scaled[col] / weights[i]
+    return df_scaled
+
+def adjust_coefficients(
+    coefs_scaled: np.ndarray, 
+    weights: np.ndarray
+) -> np.ndarray:
+    """
+    Adjust the coefficients estimated on the scaled data back to the original scale.
+    
+    Since each input was scaled as x_j / w_j,
+    the original coefficient is given by:
+        beta_j = beta_j^(scaled) / w_j.
+    
+    Args:
+        coefs_scaled: Coefficients from the elastic net run on scaled data.
+        weights: The adaptive weights used to scale the features.
+        
+    Returns:
+        Coefficients adjusted back to the original scale.
+    """
+    return coefs_scaled / weights
 
 def run_elastic_net_adaptive(
     train: pd.DataFrame,
@@ -93,8 +170,62 @@ def run_elastic_net_adaptive(
     target: str,
     features: List[str],
     params: Dict[str, Any]
-):
+) -> Tuple[pd.DataFrame, float, float, np.ndarray]:
     """
+    Run an adaptive elastic net regression using initial coefficient estimates
+    to compute adaptive weights, scale the features, run elastic net, then 
+    adjust the coefficients back to the original scale.
+    
+    This refactored version makes use of helper functions for modularity.
+    
+    Args:
+        train: Training DataFrame.
+        test: Testing DataFrame.
+        target: Name of the target column.
+        features: List of feature column names.
+        params: Dictionary of parameters. It should contain:
+            - "gamma": exponent for weight computation (optional, default=1.0).
+            - "epsilon": small constant (optional, default=1e-6).
+            - "ridge_params": parameters for the initial Ridge regression.
+            Also includes parameters for grid search over the elastic net.
+    
+    Returns:
+        A tuple: (predicted test DataFrame, best_alpha, best_l1_ratio, adjusted coefficients)
+    """
+    gamma = params.get("gamma", 1.0)
+    epsilon = params.get("epsilon", 1e-6)
+    # Use provided ridge parameters or default from ModelParameters
+    ridge_params = params.get("ridge_params", ModelParameters.ridge_params)
+    
+    # 1. Compute initial estimates with Ridge regression.
+    beta_init = compute_initial_estimates(train, target, features, ridge_params)
+    
+    # 2. Compute adaptive weights.
+    weights = compute_adaptive_weights(beta_init, gamma, epsilon)
+    
+    # 3. Scale the features using the adaptive weights.
+    train_scaled = scale_features(train, features, weights)
+    test_scaled = scale_features(test, features, weights)
+    
+    # 4. Run the standard elastic net on the scaled data.
+    pred_df, best_alpha, best_l1_ratio, coefs_scaled = run_elastic_net(
+        train_scaled, test_scaled, target, features, params, adaptive=True
+    )
+    
+    # 5. Adjust coefficients back to the original feature scale.
+    coefs = adjust_coefficients(coefs_scaled, weights)
+    
+    return pred_df, best_alpha, best_l1_ratio, coefs
+
+
+"""def run_elastic_net_adaptive(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    target: str,
+    features: List[str],
+    params: Dict[str, Any]
+):
+    ""
     Run an adaptive elastic net regression using initial coefficient estimates
     to compute adaptive weights.
     
@@ -115,9 +246,9 @@ def run_elastic_net_adaptive(
     
     Returns:
         Tuple: (predicted test DataFrame, best_alpha, best_l1_ratio, coefficients)
-    """
+    ""
     # Set gamma (or default to 1.0)
-    gamma = params.get("gamma", 1.0)
+    gamma = params.get("gamma_grid", 1.0)
     # Of gridsearch?
     
     # 1. Compute initial estimates using a Ridge regressor
@@ -129,8 +260,8 @@ def run_elastic_net_adaptive(
 
     # 2. Compute adaptive weights (small constant added to avoid division by zero)
     epsilon = 1e-6
-    weights = 1.0 / (np.abs(beta_init)**gamma) # + epsilon)
-    print(weights)
+    weights = 1.0 / (np.abs(beta_init)**gamma + epsilon) # + epsilon)
+    #print(weights)
     # 3. Scale the features for the L1 penalty; here, we create new DataFrames
     train_scaled = train.copy()
     test_scaled = test.copy()
@@ -138,9 +269,9 @@ def run_elastic_net_adaptive(
         train_scaled[col] = train_scaled[col] / weights[i]
         test_scaled[col] = test_scaled[col] / weights[i]
     
-    print("Scaled features for L1 penalty.")
+    ""print("Scaled features for L1 penalty.")
     print(train_scaled[features].head())
-    print(train[features].head())
+    print(train[features].head())""
     # 4. Run the standard elastic net on the scaled data.
     # (Reuse your existing run_elastic_net function)
     pred_df, best_alpha, best_l1_ratio, coefs_scaled = run_elastic_net(
@@ -148,9 +279,11 @@ def run_elastic_net_adaptive(
     )
     
     # 5. Adjust the coefficients back to their original scale.
-    coefs = coefs_scaled / weights
-    raise ValueError
+    coefs = coefs_scaled #/ weights
+    #raise ValueError
     return pred_df, best_alpha, best_l1_ratio, coefs
+
+"""
 
 
 def forecast_single_date(
@@ -317,7 +450,7 @@ def run_day_ahead_forecasting(
         d for d in df[datetime_col].unique()
         if pd.Timestamp(d).hour == 9 and pd.Timestamp(d).minute == 0
     ]
-    
+    #print(len(forecast_dates), "forecast dates found.")
     with ProcessPoolExecutor() as executor:
         futures = {
             executor.submit(
@@ -339,8 +472,8 @@ def run_day_ahead_forecasting(
                 result = future.result()
                 forecast_results.extend(result)
             except Exception as exc:
-                raise ValueError(f"Forecasting failed for {futures[future]}: {exc}")
                 print(f"Forecasting failed for {futures[future]}: {exc}")
+                raise ValueError(f"Forecasting failed for {futures[future]}: {exc}")
     
     print("Forecasting complete.")
     return pd.DataFrame(forecast_results)
