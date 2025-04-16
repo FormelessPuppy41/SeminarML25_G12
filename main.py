@@ -29,7 +29,7 @@ file_names = FileNames()
 def run_models():
     model_settings = ModelSettings()
 
-    df = DataLoader().load_input_data(file_names.input_files.data_different_group)
+    df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     print(df)
     #df = df[df[model_settings.datetime_col] >= pd.to_datetime('07-20-2013')]
@@ -47,7 +47,7 @@ def run_models():
         )
     
     forecast_controller.forecast_elastic_net()
-    forecast_controller.forecast_adaptive_elastic_net()
+    #forecast_controller.forecast_adaptive_elastic_net()
 
 
 
@@ -60,8 +60,9 @@ if __name__ == "__main__":
     run_models() 
     print("RUNNING ELASTIC NET RESULTS")
     run_results(file_names.model_result_files.elastic_net_forecast)
-    print("\n\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
-    run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
+    
+    #print("\n\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
+    #run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
     #run_models()
     #run_results(file_names.model_result_files.ridge_forecast)
 

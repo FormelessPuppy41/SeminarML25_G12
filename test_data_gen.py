@@ -409,7 +409,7 @@ def generate_forecasts_and_decompose(df):
     plt.show()
     return df_clean, pca, pca_components, ica, ica_components
 
-
+# Check that there are deviations to both sides of HR for all forecasts. 
 if __name__ == "__main__":
     from data.data_loader import DataLoader
     from configuration import ModelSettings, FileNames

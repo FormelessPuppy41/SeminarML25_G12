@@ -57,7 +57,7 @@ def run_elastic_net(
         param_grid[f"{step_name}__l1_ratio"] = l1_ratio_grid
 
     tscv = TimeSeriesSplit(n_splits=5)
-    gs = GridSearchCV(model, param_grid, cv=tscv)
+    gs = GridSearchCV(model, param_grid, cv=tscv, scoring='neg_mean_squared_error')
     gs.fit(train[features], train[target])
 
     best_model = gs.best_estimator_
@@ -65,7 +65,24 @@ def run_elastic_net(
     best_alpha = gs.best_params_[f'{step_name}__alpha']
     best_l1_ratio = gs.best_params_.get(f'{step_name}__l1_ratio')
 
+    # Extract coefficients and intercept
     coefs = best_model.named_steps[step_name].coef_
+    intercept = best_model.named_steps[step_name].intercept_
+
+    # Print relevant information
+    
+    """
+    print("Feature matrix X (test[features]):")
+    print(test[features])
+    print("\nCoefficients (beta):")
+    print(coefs)
+    print("\nIntercept:")
+    print(intercept)
+    print("\nForecasted values (predictions):")
+    print(predictions)
+    """
+    
+
     test = test.copy()
     test['prediction'] = predictions
     return test, best_alpha, best_l1_ratio, coefs

@@ -34,7 +34,7 @@ def get_model_from_params(params: dict):
     else:
         l1_ratio = 0.5
 
-    random_state = params.get("random_state", 42)
+    random_state = 42 # params.get("random_state", 42)
 
     # Return the estimator based on the l1_ratio value.
     # When using grid search over a range of l1_ratio values, default to ElasticNet.

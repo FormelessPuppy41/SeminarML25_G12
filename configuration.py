@@ -36,8 +36,8 @@ class ModelParameters:
     }
 
     elastic_net_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 2.0, 10.0],
-        'l1_ratio_grid': [1e-6, 0.25, 0.5, 0.75, 1.0],
+        'alpha_grid': np.linspace(0.1, 1, 10), #[0.01, 0.1, 1.0, 10.0], 
+        'l1_ratio_grid': [0.5] #[1e-6, 0.25, 0.5, 0.75, 1.0],
     }
 
     adaptive_elastic_net_params = {
@@ -74,7 +74,7 @@ class ModelSettings:
     forecast_horizon = 96
     rolling_window_days = 165
     datetime_col = 'datetime'
-    freq = '1H' #'15min' or '1H'
+    freq = '15min' #'1H' #'15min' or '1H'
 
 
 @dataclass
@@ -92,6 +92,7 @@ class FileNames:
         combined_forecasts = 'combined_forecasts.csv'
         flag_matrix = 'flag_matrix.csv'
         real_error_data = 'error_model_combined_forecasts.csv'
+        real_error_data2 = 'error_model_combined_forecasts2.csv'
         data_different_group = 'data_ander_groepje.csv'
 
     @dataclass

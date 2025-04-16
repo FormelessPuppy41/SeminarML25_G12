@@ -8,15 +8,15 @@ from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 import os
 
 # ===================== CONFIGURATION =====================
-INPUT_FILE = r"C:\Users\jfdou\Downloads\combined_forecast321 (2).csv"  # Updated input file path
+INPUT_FILE = r"C:\Users\jfdou\Downloads\NewDataBig.csv"  # Updated input file path
 
-datetime_col = "Zeit"
+datetime_col = "datetime"
 forecast_columns = ["A1", "A2", "A3", "A4", "A5", "A6"]
 target_col = "HR"
 baseline_col = "K"  # column used for baseline forecast
 
 rolling_window_days = 165
-points_per_day = 96
+points_per_day = 96   # Change this to 96 if you are working with 15-minute data
 forecast_horizon = points_per_day
 window_length = rolling_window_days * points_per_day
 step = points_per_day  # slide one day forward
@@ -49,11 +49,18 @@ def main():
     total_observations = len(data_df)
     print(f"Total observations in dataset: {total_observations}")
 
+    # This list will store one entry per forecast observation (not per day)
     forecast_results = []
     mse_elnet_list = []
     rmse_elnet_list = []
     mse_K_list = []
     rmse_K_list = []
+
+    # Initialize accumulators for the overall RMSE computation
+    total_squared_error_elnet = 0
+    total_count_elnet = 0
+    total_squared_error_K = 0
+    total_count_K = 0
 
     # 2) Rolling forecast loop
     for start in range(window_length, total_observations - forecast_horizon + 1, step):
@@ -71,6 +78,7 @@ def main():
             print(f"Skipping index {start}: No valid target data after dropping missing HR values.")
             continue
 
+        # The forecast_date here is the date associated with the first observation in the test window.
         forecast_date = test_window['date'].iloc[0]
         print(f"\n--- Forecasting for date: {forecast_date} (index {start}) ---")
 
@@ -98,13 +106,23 @@ def main():
         best_alpha = grid_search.best_params_['elasticnet__alpha']
         print(f"Best alpha found: {best_alpha}")
 
-        # Predict and evaluate ElasticNet forecast
+        # Retrieve and print the intercept from the model
+        intercept = best_model.named_steps['elasticnet'].intercept_
+        print("Model intercept (from grid search):")
+        print(intercept)
+
+        # Predict and evaluate ElasticNet forecast for the current window
         y_pred = best_model.predict(cleaned_test)
         mse_elnet = mean_squared_error(y_test, y_pred)
         rmse_elnet = np.sqrt(mse_elnet)
         mse_elnet_list.append(mse_elnet)
         rmse_elnet_list.append(rmse_elnet)
         print(f"ElasticNet forecast for {forecast_date}: MSE = {mse_elnet:.2f}, RMSE = {rmse_elnet:.2f}")
+
+        # Update the overall accumulators for ElasticNet
+        n_pred = len(y_test)
+        total_squared_error_elnet += mse_elnet * n_pred  # MSE * number of predictions = total SSE for the window
+        total_count_elnet += n_pred
 
         # Evaluate baseline forecast using column 'K' (if available)
         if baseline_col in test_window.columns:
@@ -114,40 +132,79 @@ def main():
             mse_K_list.append(mse_K)
             rmse_K_list.append(rmse_K)
             print(f"Baseline '{baseline_col}' forecast for {forecast_date}: MSE = {mse_K:.2f}, RMSE = {rmse_K:.2f}")
+
+            # Update overall accumulators for the baseline forecast
+            total_squared_error_K += mse_K * n_pred
+            total_count_K += n_pred
         else:
             print(f"Column '{baseline_col}' not found in the test window.")
             mse_K = None
             rmse_K = None
 
-        forecast_results.append({
-            'forecast_date': forecast_date,
-            'mse_elnet': mse_elnet,
-            'rmse_elnet': rmse_elnet,
-            'mse_K': mse_K,
-            'rmse_K': rmse_K,
-            'y_pred': y_pred.tolist(),
-            'y_actual': y_test.tolist(),
-            'best_alpha': best_alpha
-        })
+        # Retrieve model coefficients from the ElasticNet step in the pipeline.
+        coefs = best_model.named_steps['elasticnet'].coef_
 
-    # 3) Save results
+        # Instead of one row per day, loop over each observation in the forecast horizon.
+        for dt, pred, actual in zip(test_window.index, y_pred, y_test):
+            # Get the raw feature values for the current observation
+            x_values = cleaned_test.loc[[dt]]  # keeping as DataFrame
+            print(f"\n>>> Forecast details for observation at datetime: {dt}")
+            print("Raw feature values (x's):")
+            print(x_values)
+
+            # Transform the input values using the scaler from the pipeline
+            x_scaled = best_model.named_steps['standardscaler'].transform(x_values)
+            print("Standardized feature values (x's after scaling):")
+            print(x_scaled)
+
+            # Print model coefficients and the intercept (again, per observation)
+            print("Model coefficients (betas):")
+            print(coefs)
+            print("Model intercept:")
+            print(intercept)
+
+            # Calculate the forecast manually using the standardized inputs and the coefficients
+            manual_forecast = np.dot(x_scaled, coefs) + intercept
+            print("Manually computed forecast (using dot product):")
+            print(manual_forecast)
+
+            # Also print the model forecast and actual value
+            print(f"Model forecast: {pred}")
+            print(f"Actual value: {actual}")
+
+            # Append forecast result for record-keeping
+            forecast_results.append({
+                'datetime': dt,
+                'forecast_date': forecast_date,
+                'y_pred': pred,
+                'y_actual': actual,
+                'best_alpha': best_alpha,
+                'mse_elnet': mse_elnet,
+                'rmse_elnet': rmse_elnet,
+                'mse_K': mse_K,
+                'rmse_K': rmse_K
+            })
+
+    # 3) Save results for each observation
     results_df = pd.DataFrame(forecast_results)
-    results_df.to_csv("forecast_results.csv", index=False)
-    print("\n✅ Forecast results saved to 'forecast_results.csv'.")
+    # Changed the output file to ForeCastsDelnet.csv in your Downloads folder:
+    output_path = r"C:\Users\jfdou\Downloads\ForeCastsDelnet.csv"
+    results_df.to_csv(output_path, index=False)
+    print(f"\n✅ Forecast results saved to '{output_path}'.")
 
-    # Compute overall ElasticNet metrics regardless of baseline
-    if mse_elnet_list:
-        overall_mse_elnet = np.mean(mse_elnet_list)
-        overall_rmse_elnet = np.mean(rmse_elnet_list)
-        print(f"\n📈 Overall ElasticNet forecast: Average MSE = {overall_mse_elnet:.2f}, Average RMSE = {overall_rmse_elnet:.2f}")
+    # Compute overall ElasticNet metrics using the aggregated squared errors
+    if total_count_elnet > 0:
+        overall_mse_elnet = total_squared_error_elnet / total_count_elnet
+        overall_rmse_elnet = np.sqrt(overall_mse_elnet)
+        print(f"\n📈 Overall ElasticNet forecast: Total MSE = {overall_mse_elnet:.2f}, Total RMSE = {overall_rmse_elnet:.2f}")
     else:
         print("❌ No ElasticNet forecasts were computed.")
 
     # Compute overall baseline metrics if available.
-    if mse_K_list:
-        overall_mse_K = np.mean(mse_K_list)
-        overall_rmse_K = np.mean(rmse_K_list)
-        print(f"\n📈 Overall Baseline ('{baseline_col}') forecast: Average MSE = {overall_mse_K:.2f}, Average RMSE = {overall_rmse_K:.2f}")
+    if total_count_K > 0:
+        overall_mse_K = total_squared_error_K / total_count_K
+        overall_rmse_K = np.sqrt(overall_mse_K)
+        print(f"\n📈 Overall Baseline ('{baseline_col}') forecast: Total MSE = {overall_mse_K:.2f}, Total RMSE = {overall_rmse_K:.2f}")
     else:
         print("ℹ️ Baseline forecasts were not computed (column 'K' missing).")
 
@@ -155,28 +212,37 @@ def main():
     if not results_df.empty:
         results_df['forecast_date'] = pd.to_datetime(results_df['forecast_date'])
         results_df['year'] = results_df['forecast_date'].dt.year
-        yearly_metrics_elnet = results_df.groupby('year').agg({'mse_elnet': 'mean', 'rmse_elnet': 'mean'}).reset_index()
 
-        # --- Compute RMSE as a percentage of the total installed capacity per year ---
+        # We only need the MSE to compute a proper yearly RMSE = sqrt(MSE).
+        yearly_metrics_elnet = results_df.groupby('year').agg({'mse_elnet': 'mean'}).reset_index()
+
+        # Compute RMSE for each year as the square root of that year's MSE.
+        yearly_metrics_elnet['rmse_elnet'] = np.sqrt(yearly_metrics_elnet['mse_elnet'])
+
+        # --- Update installed capacities as given in the screenshot ---
         installed_capacity = {
-            2012: 1042563,
-            2013: 2181227,
-            2014: 2328977,
-            2015: 2315274,
-            2016: 2428164,
-            2017: 2875506,
-            2018: 2975598
+            2012: 6740.51,
+            2013: 7929.94,
+            2014: 8380.68,
+            2015: 8904.11,
+            2016: 9726.56,
+            2017: 10374.53,
+            2018: 11239.32
         }
         yearly_metrics_elnet['installed_capacity'] = yearly_metrics_elnet['year'].map(installed_capacity)
-        yearly_metrics_elnet['rmse_elnet_pct'] = (yearly_metrics_elnet['rmse_elnet'] / yearly_metrics_elnet['installed_capacity']) * 100
 
-        print("\n📊 Yearly ElasticNet Metrics:")
+        # Percentage of RMSE relative to installed capacity
+        yearly_metrics_elnet['rmse_elnet_pct'] = (
+            yearly_metrics_elnet['rmse_elnet'] / yearly_metrics_elnet['installed_capacity']
+        ) * 100
+
+        print("\n📊 Yearly ElasticNet Metrics (MSE, RMSE, capacity, % of capacity):")
         print(yearly_metrics_elnet[['year', 'mse_elnet', 'rmse_elnet', 'installed_capacity', 'rmse_elnet_pct']])
 
         # --- Build and print a summary DataFrame for overall metrics ---
         overall_metrics = {
-            'Overall_MSE': overall_mse_elnet,
-            'Overall_RMSE': overall_rmse_elnet
+            'Overall_MSE': overall_mse_elnet if total_count_elnet > 0 else None,
+            'Overall_RMSE': overall_rmse_elnet if total_count_elnet > 0 else None
         }
         overall_df = pd.DataFrame([overall_metrics])
         print("\n📊 Overall ElasticNet Metrics (full sample):")
