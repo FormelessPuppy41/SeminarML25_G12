@@ -45,7 +45,7 @@ def get_model_from_params(params: dict, adaptive: bool = False):
     else:
         # For other cases (including when multiple values are provided) default to ElasticNet.
         model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=random_state, max_iter=10000)
-
+        
     if adaptive:
         return make_pipeline(model)
     #return make_pipeline(model)

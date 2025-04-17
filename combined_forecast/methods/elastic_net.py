@@ -129,33 +129,35 @@ def run_elastic_net_adaptive(
         for i, col in enumerate(features):
             df_scaled[col] = df_scaled[col] / weights[i]
         return df_scaled
+    # 1. Fit Ridge to get initial coeffs and scaler
+    ridge_model = get_model_from_params(params.get("ridge_params", {}), adaptive=False)
+    ridge_model.fit(train[features], train[target])
+    step = ridge_model.steps[-1][0]
+    beta_init = ridge_model.named_steps[step].coef_
+    scaler = ridge_model.named_steps['standardscaler']
+
+    # 2. Standardize features
+    train_std = train.copy()
+    test_std = test.copy()
+    train_std[features] = scaler.transform(train[features])
+    test_std[features] = scaler.transform(test[features])
+
+    # 3. Compute adaptive weights
     gamma = params.get("gamma", 1.0)
     epsilon = params.get("epsilon", 1e-6)
-    # Use provided ridge parameters or default from ModelParameters
-    ridge_params = ModelParameters.ridge_params
-    
-    # 1. Compute initial estimates with Ridge regression.
-    ridge_model = get_model_from_params(ridge_params)
-    ridge_model.fit(train[features], train[target])
-    # Get the estimator in the pipeline (assumed to be the final step)
-    final_estimator = ridge_model.named_steps[list(ridge_model.named_steps)[-1]]
-    beta_init =  final_estimator.coef_
-    
-    # 2. Compute adaptive weights.
     weights = 1.0 / (np.abs(beta_init) ** gamma + epsilon)
-    
-    # 3. Scale the features using the adaptive weights.
-    train_scaled = scale_features(train, features, weights)
-    test_scaled = scale_features(test, features, weights)
-    
-    # 4. Run the standard elastic net on the scaled data.
+
+    # 4. Scale standardized features by weights
+    train_scaled = scale_features(train_std, features, weights)
+    test_scaled = scale_features(test_std, features, weights)
+
+    # 5. Run ElasticNet on weighted data (no internal scaling)
     pred_df, best_alpha, best_l1_ratio, coefs_scaled = run_elastic_net(
         train_scaled, test_scaled, target, features, params, adaptive=True
     )
-    
-    # 5. Adjust coefficients back to the original feature scale.
+
+    # 6. Rescale coefficients back
     coefs = coefs_scaled / weights
-    
     return pred_df, best_alpha, best_l1_ratio, coefs
 
 

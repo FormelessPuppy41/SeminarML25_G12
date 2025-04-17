@@ -26,17 +26,17 @@ class ModelParameters:
     # np.linspace(0.1, 1, 10)
     # [0.1, 1.0, 10.0]
     ridge_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
+        'alpha_grid': np.linspace(0.1, 1, 10),#[0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
         'l1_ratio_grid': [0.0],           # Only one value: ridge behavior
     }
 
     lasso_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 10.0], #np.linspace(0.1, 2, 10),
+        'alpha_grid': np.linspace(0.1, 1, 10), #[0.01, 0.1, 1.0, 10.0], #np.linspace(0.1, 2, 10),
         'l1_ratio_grid': [1.0],           # Only one value: lasso behavior
     }
 
     elastic_net_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 10.0], #[0.01, 0.1, 1.0, 10.0], 
+        'alpha_grid': [0.01, 0.1, 1.0, 10.0],#[0.01, 0.1, 1.0, 10.0], #[0.01, 0.1, 1.0, 10.0], 
         'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
     }
 
@@ -70,7 +70,7 @@ class ModelSettings:
         - freq (str): The frequency of the data.
     """
     target = 'HR'
-    features = ["A1", "A2", "A3", "A4", "A5", "A6"]
+    features = ["A1", "A2", "A3", "A4", "A5", "A6"]#, "A7"]
     forecast_horizon = 96 # 96 for 15min, 24 for 1H
     rolling_window_days = 165 # 165 own data, 30 or 61 for other paper. 
     datetime_col = 'datetime'
