@@ -45,10 +45,10 @@ def run_models():
             freq=model_settings.freq # Change to '15min' or '1h' if needed.
         )
     
-    forecast_controller.forecast_elastic_net()
+    #forecast_controller.forecast_elastic_net()
     #forecast_controller.forecast_ridge()
     #forecast_controller.forecast_lasso()
-    #forecast_controller.forecast_adaptive_elastic_net()
+    forecast_controller.forecast_adaptive_elastic_net()
 
 
 
