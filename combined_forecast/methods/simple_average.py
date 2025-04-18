@@ -62,6 +62,13 @@ def run_day_ahead_simple_average(
         raise ValueError(f"'{datetime_col}' not found in DataFrame.")
     
     df = df.copy()
+
+    df["prediction"] = df[["A1", "A2", "A3", "A4", "A5", "A6"]].mean(axis=1)
+    df["target_time"] = df[datetime_col]
+    df["actual"] = df[target_column]
+    df = df[["target_time", "actual", "prediction"]]
+    return df.fillna(0)
+
     df[datetime_col] = pd.to_datetime(df[datetime_col])
     df = df.set_index(datetime_col).sort_index()
 

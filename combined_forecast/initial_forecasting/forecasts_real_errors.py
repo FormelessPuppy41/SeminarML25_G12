@@ -64,8 +64,6 @@ def get_random_fourier_features(day_of_week: pd.Series, D: int = fourier_d, gamm
     #return np.zeros(day_of_week.shape)
 
     return z.mean(axis=1)
-    weights = np.random.uniform(-0.2, 0.2, size=z.shape[1])
-    return z @ weights  # result is a (n_samples,) array
 
 
 #TODO:  a) PCA naar elbow curve kijken, moet staps gewijs bewegen en niet 
@@ -334,14 +332,12 @@ def run_forecast6(df: pd.DataFrame) -> pd.DataFrame:
     df[ModelSettings.datetime_col] = pd.to_datetime(df[ModelSettings.datetime_col])
     df['day_of_year'] = df[ModelSettings.datetime_col].dt.dayofyear
 
-    # Alpha: reduce trust when previous forecast error was high
     df['alpha'] = (
         1.00 
         + 0.25 * get_random_fourier_features(df['day_of_year'], np.random.normal(fourier_d, fourier_d_sigma), np.random.normal(fourier_gamma, fourier_gamma_sigma))
         + np.random.normal(mu, sigma, len(df))
-    ) # could exceed 1.0 or drop below 0.5 depending on error
+    ) 
     
-    # Delta: oppose the direction of previous forecast residual
     df['delta'] = -0.02  + np.random.normal(mu2, sigma2, len(df))
     
     # t-distribution noise

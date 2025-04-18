@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from typing import List, Dict, Any, Optional
 
+import math
+
 
 class ForecastResultProcessor:
     """
@@ -47,48 +49,129 @@ class ForecastResultProcessor:
             'R2': r2_score(y_true, y_pred)
         }
     
+    def plot_model_grid(self, list_of_dfs: list[pd.DataFrame], model_names: list[str] = None):
+        """
+        Plots grids of best_alpha (log scale) and best_l1_ratio for multiple models.
+
+        Parameters:
+        list_of_dfs (list of pd.DataFrame): Each DataFrame must have 'target_time', 'best_alpha', and 'best_l1_ratio'.
+        model_names (list of str, optional): Names for each model; if None, defaults to "Model 1", "Model 2", etc.
+        """
+
+        num_models = len(list_of_dfs)
+
+        if model_names is None:
+            model_names = [f"Model {i+1}" for i in range(num_models)]
+
+        # ----------------- Plot Best Alpha -----------------
+        cols = 3
+        rows = math.ceil(num_models / cols)
+
+        plt.figure(figsize=(cols*5, rows*4))
+        for i, (df, name) in enumerate(zip(list_of_dfs, model_names)):
+            print(f"Plotting {name} Best Alpha... {i}")
+            df = df.copy()
+            df['target_time'] = pd.to_datetime(df['target_time'])
+            df = df.set_index('target_time')
+            df_daily = df[['best_alpha']].resample('D').mean()
+
+            plt.subplot(rows, cols, i + 1)
+            plt.plot(df_daily.index, df_daily['best_alpha'], marker='o', markersize=2, linestyle='-', linewidth=1)
+            plt.yscale('log')
+            plt.title(f'{name} - Best Alpha', fontsize=10)
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+
+        plt.suptitle('Daily Best Alpha (Log Scale)', y=1.02, fontsize=16)
+        plt.tight_layout()
+        plt.show()
+
+        # ----------------- Plot Best L1 Ratio -----------------
+        valid_l1_models = []
+        valid_model_names = []
+
+        for df, name in zip(list_of_dfs, model_names):
+            df = df.copy()
+            df['target_time'] = pd.to_datetime(df['target_time'])
+            df = df.set_index('target_time')
+            df_daily = df[['best_l1_ratio']].resample('D').mean()
+
+            unique_values = df_daily['best_l1_ratio'].dropna().unique()
+            if len(unique_values) >= 2:
+                valid_l1_models.append(df_daily)
+                valid_model_names.append(name)
+            else:
+                print(f"Skipping {name} for L1 ratio plot (only {len(unique_values)} unique value(s)).")
+
+        if valid_l1_models:
+            num_valid = len(valid_l1_models)
+            cols = 3
+            rows = math.ceil(num_valid / cols)
+
+            plt.figure(figsize=(cols*5, rows*4))
+            for i, (df_daily, name) in enumerate(zip(valid_l1_models, valid_model_names)):
+                plt.subplot(rows, cols, i + 1)
+                plt.plot(df_daily.index, df_daily['best_l1_ratio'], marker='o', markersize=2, linestyle='-', linewidth=1)
+                plt.title(f'{name} - Best L1 Ratio', fontsize=10)
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+
+            plt.suptitle('Daily Best L1 Ratio', y=1.02, fontsize=16)
+            plt.tight_layout()
+            plt.show()
+        else:
+            print("No models with varying 'best_l1_ratio' to plot.")
+
+    
+
     def plot_daily_alpha_l1(self, df: pd.DataFrame):
         """
         Aggregates best_alpha and best_l1_ratio to daily frequency
-        (taking the first value of each day) and plots them.
+        (taking the mean value each day) and plots them, with log scale for alpha.
 
         Parameters:
         df (pd.DataFrame): DataFrame with 'target_time', 'best_alpha', 'best_l1_ratio'.
-                        'target_time' must be datetime or convertible to datetime.
+                            'target_time' must be datetime or convertible to datetime.
         """
 
         # Ensure 'target_time' is datetime and set as index
         df['target_time'] = pd.to_datetime(df['target_time'])
         df = df.set_index('target_time')
 
-        # Resample to daily frequency, taking the first available value each day
-        df_daily = df.resample('D').first()
+        # Keep only numeric columns
+        numeric_cols = ['best_alpha', 'best_l1_ratio']
+        df_numeric = df[numeric_cols]
 
-        if 'best_alpha' in df.columns:
-            # Plot Best Alpha over days
-            plt.figure()
-            plt.plot(df_daily.index, df_daily['best_alpha'], marker='o', linestyle='-')
-            plt.xlabel('Date')
-            plt.ylabel('Best Alpha')
-            plt.title('Daily Best Alpha (2012–2018)')
+        # Resample to daily frequency, taking mean
+        df_daily = df_numeric.resample('D').mean()
+
+        plt.style.use('seaborn-v0_8-darkgrid')
+
+        if 'best_alpha' in df_daily.columns:
+            plt.figure(figsize=(14, 6))
+            plt.plot(df_daily.index, df_daily['best_alpha'], marker='o', markersize=3, linestyle='-', linewidth=1)
+            plt.yscale('log')  # <<<< MAKE Y-AXIS LOG SCALE
+            plt.xlabel('Date', fontsize=12)
+            plt.ylabel('Best Alpha (log scale)', fontsize=12)
+            plt.title('Daily Best Alpha (2012–2018)', fontsize=14)
             plt.xticks(rotation=45)
             plt.tight_layout()
             plt.show()
         else:
             print('No "best_alpha" present in columns of df')
 
-        if 'best_l1_ratio' in df.columns:
-            # Plot Best L1 Ratio over days
-            plt.figure()
-            plt.plot(df_daily.index, df_daily['best_l1_ratio'], marker='o', linestyle='-')
-            plt.xlabel('Date')
-            plt.ylabel('Best L1 Ratio')
-            plt.title('Daily Best L1 Ratio (2012–2018)')
+        if 'best_l1_ratio' in df_daily.columns:
+            plt.figure(figsize=(14, 6))
+            plt.plot(df_daily.index, df_daily['best_l1_ratio'], marker='o', markersize=3, linestyle='-', linewidth=1)
+            plt.xlabel('Date', fontsize=12)
+            plt.ylabel('Best L1 Ratio', fontsize=12)
+            plt.title('Daily Best L1 Ratio (2012–2018)', fontsize=14)
             plt.xticks(rotation=45)
             plt.tight_layout()
             plt.show()
         else:
             print('No "best_l1_ratio" present in columns of df')
+
 
     def plot_forecast_vs_actual(self, title: str = "Forecast vs Actual"):
         """

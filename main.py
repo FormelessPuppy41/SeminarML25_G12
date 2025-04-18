@@ -27,7 +27,7 @@ file_names = FileNames()
 def run_models():
     model_settings = ModelSettings()
 
-    df = DataLoader().load_input_data(file_names.input_files.data_different_group)
+    df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     print(df)
 
@@ -44,7 +44,8 @@ def run_models():
             datetime_col=model_settings.datetime_col,
             freq=model_settings.freq # Change to '15min' or '1h' if needed.
         )
-    #forecast_controller.forecast_elastic_net(bool_tune=False)
+    #forecast_controller.forecast_simple_average()
+    forecast_controller.forecast_elastic_net(bool_tune=True)
     #forecast_controller.forecast_ridge()
     #forecast_controller.forecast_lasso()
     #forecast_controller.forecast_xgboost()
@@ -55,35 +56,46 @@ def run_models():
 def run_results(file_name: str):
     forecast_result_processor = ForecastResultController()
     forecast_result_processor.compute_metrics(file_name)
-    if file_name in [
-        file_names.model_result_files.elastic_net_forecast, 
-        file_names.model_result_files.tune_elastic_net_forecast, 
-        file_names.model_result_files.adaptive_elastic_net_forecast
-        ]:
-        forecast_result_processor.visualise_alpha_l1(file_name)
+    # if file_name in [
+    #     file_names.model_result_files.elastic_net_forecast, 
+    #     file_names.model_result_files.tune_elastic_net_forecast, 
+    #     file_names.model_result_files.adaptive_elastic_net_forecast
+    #     ]:
+    #     forecast_result_processor.visualise_alpha_l1(file_name)
+
+    # plot grid of alpha and l1 ratio
+    forecast_result_processor.visualise_alpha_l1_in_grid(
+        list_file_names=[
+            file_names.model_result_files.ridge_forecast, # alpha only
+            file_names.model_result_files.lasso_forecast, # alpha ratio only
+            file_names.model_result_files.elastic_net_forecast, # alpha only
+            file_names.model_result_files.tune_elastic_net_forecast, # alpha and l1 ratio
+            file_names.model_result_files.adaptive_elastic_net_forecast # alpha and l1 ratio
+        ]
+    )
 
 if __name__ == "__main__":
-    run_models() 
+    #run_models() 
 
-    print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
-    run_results(file_names.model_result_files.simple_average_forecast)
+    #print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
+    #run_results(file_names.model_result_files.simple_average_forecast)
 
-    print("\n\nRUNNING XGBOOST RESULTS")
-    run_results(file_names.model_result_files.xgboost_forecast)
+    #print("\n\nRUNNING XGBOOST RESULTS")
+    #run_results(file_names.model_result_files.xgboost_forecast)
     
-    print("RUNNING ELASTIC NET RESULTS")
-    run_results(file_names.model_result_files.elastic_net_forecast)
+    #print("RUNNING ELASTIC NET RESULTS")
+    #run_results(file_names.model_result_files.elastic_net_forecast)
 
     print("RUNNING ELASTIC NET (TUNE) RESULTS")
     run_results(file_names.model_result_files.tune_elastic_net_forecast)
     
-    print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
-    run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
+    #print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
+    #run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
 
-    print("\n\nRUNNING LASSO RESULTS")
+    """print("\n\nRUNNING LASSO RESULTS")
     run_results(file_names.model_result_files.lasso_forecast)
 
     print("\n\nRUNNING RIDGE RESULTS")
-    run_results(file_names.model_result_files.ridge_forecast)
+    run_results(file_names.model_result_files.ridge_forecast)"""
 
     print("\n\n\n!!!DO NOT FORGET TO RUN THE ELASTIC NET WITH FIXED ALPHA!!!\n\n\n")
