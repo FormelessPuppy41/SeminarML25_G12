@@ -4,9 +4,10 @@ XGBoost regression model
 
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Any
-
+from typing import List, Dict, Any, Tuple
 from xgboost import XGBRegressor
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+
 
 from configuration import ModelSettings
 from .utils import data_interpolate_prev, data_interpolate_fut
@@ -36,31 +37,51 @@ def get_xgb_model(params: Dict[str, Any]) -> XGBRegressor:
 
 
 def run_xgboost(
-    train: pd.DataFrame,
-    test: pd.DataFrame,
-    target: str,
-    features: List[str],
-    params: Dict[str, Any]
-) -> pd.DataFrame:
+     train: pd.DataFrame,
+     test: pd.DataFrame,
+     target: str,
+     features: List[str],
+     params: Dict[str, Any]
+ ) -> Tuple[pd.DataFrame, int, int, float]:
     """
-    Train and apply XGBoost regression model.
-
-    Args:
-        train: Training DataFrame.
-        test: Test DataFrame.
-        target: Name of target column.
-        features: List of feature column names.
-        params: XGBoost hyperparameters.
+    Train and apply XGBoost regression model with optional GridSearchCV
+    over n_estimators, max_depth, and learning_rate.
 
     Returns:
-        pd.DataFrame: Test set with predictions.
+        pd.DataFrame: Test set with predictions in 'prediction' column.
+        int: best n_estimators
+        int: best max_depth
+        float: best learning_rate
     """
-    model = get_xgb_model(params)
-    model.fit(train[features], train[target])
+    local_params = params.copy()
+    n_estimators_grid = local_params.pop('n_estimators_grid', None)
+    max_depth_grid = local_params.pop('max_depth_grid', None)
+    learning_rate_grid = local_params.pop('learning_rate_grid', None)
+    cv_folds = local_params.pop('cv', 5)
 
+    # Base model with remaining fixed params
+    base_model = get_xgb_model(local_params)
+
+    param_grid = {}
+    if n_estimators_grid is not None:
+        param_grid['n_estimators'] = n_estimators_grid
+    if max_depth_grid is not None:
+        param_grid['max_depth'] = max_depth_grid
+    if learning_rate_grid is not None:
+        param_grid['learning_rate'] = learning_rate_grid
+
+    tscv = TimeSeriesSplit(n_splits=cv_folds)
+    gs = GridSearchCV(base_model, param_grid, cv=tscv, scoring='neg_mean_squared_error')
+    gs.fit(train[features], train[target])
+    best_model = gs.best_estimator_
+    best_n_estimators = gs.best_params_.get('n_estimators')
+    best_max_depth = gs.best_params_.get('max_depth')
+    best_learning_rate = gs.best_params_.get('learning_rate')
+
+    predictions = best_model.predict(test[features])
     test = test.copy()
-    test['prediction'] = model.predict(test[features])
-    return test
+    test['prediction'] = predictions
+    return test, best_n_estimators, best_max_depth, best_learning_rate
 
 def forecast_single_date_xgb(
     forecast_date,
@@ -73,20 +94,7 @@ def forecast_single_date_xgb(
     freq
 ):
     """
-    Generate forecasts for a single date using XGBoost.
-
-    Args:
-        forecast_date: Date to forecast.
-        df: Full dataset with datetime, target, and features.
-        target_column: Target variable name.
-        feature_columns: Feature column names.
-        forecast_horizon: Forecast steps (default=96).
-        rolling_window_days: Days to use for training.
-        xgb_params: XGBoost model parameters.
-        freq: Data frequency.
-
-    Returns:
-        List[Dict]: List of dictionaries with forecast results.
+    Generate forecasts for a single date using XGBoost with optional grid search.
     """
     results = []
     forecast_start = forecast_date.normalize() + pd.Timedelta(days=1)
@@ -97,22 +105,22 @@ def forecast_single_date_xgb(
     if train_df.empty or test_df.empty:
         return results
 
-    # Train once
-    model = get_xgb_model(xgb_params)
-    model.fit(train_df[feature_columns], train_df[target_column])
+    # Run XGBoost (with CV) on the train/test split
+    pred_df, best_n_estimators, best_max_depth, best_learning_rate = run_xgboost(
+        train_df, test_df, target_column, feature_columns, xgb_params
+    )
 
-    # Predict all 96 intervals at once
-    test_df = test_df.copy()
-    test_df['prediction'] = model.predict(test_df[feature_columns])
-
-    # Collect results
-    for _, row in test_df.iterrows():
+    for _, row in pred_df.iterrows():
         results.append({
-            'target_time': row[ModelSettings.datetime_col],
-            'prediction': row['prediction'],
-            'actual': row[target_column]
+        'target_time': row[ModelSettings.datetime_col],
+        'prediction': row['prediction'],
+        'actual': row[target_column],
+        'best_n_estimators': best_n_estimators,
+        'best_max_depth': best_max_depth,
+        'best_learning_rate': best_learning_rate
         })
     return results
+
 
 
 

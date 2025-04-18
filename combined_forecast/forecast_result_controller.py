@@ -55,6 +55,15 @@ class ForecastResultController:
         forecast_result_processor = ForecastResultProcessor(result_df)
         ic(forecast_result_processor.compute_metrics())
 
+    def visualise_alpha_l1(self, file_name: str = file_names.model_result_files.ridge_forecast):
+        """
+        This method is used to visualise the alpha and l1 ratio for the forecast results.
+        """
+        result_df = DataLoader().load_model_results(file_name)
+        forecast_result_processor = ForecastResultProcessor(result_df)
+        forecast_result_processor.plot_daily_alpha_l1()
+
+
     def visualise_ridge(self):
         """
         This method is used to visualise the results of the ridge forecast.

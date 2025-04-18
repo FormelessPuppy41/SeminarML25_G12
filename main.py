@@ -22,16 +22,19 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 """
 
 
-
 file_names = FileNames()
 
 def run_models():
     model_settings = ModelSettings()
 
     df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
+    # Print the number of time that HR has a value non zero, but K is zero. 
+    hr_zero_and_k_non_zero = df[(df['HR'] == 0) & (df['K'] != 0)]
+    hr_non_zero_and_k_zero = df[(df['HR'] != 0) & (df['K'] == 0)]
+
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     print(df)
-    df = df[df[model_settings.datetime_col] >= pd.to_datetime('01-01-2018')]
+    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('04-01-2018')]
     #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2014')]
     #print(df)
 
@@ -44,11 +47,11 @@ def run_models():
             datetime_col=model_settings.datetime_col,
             freq=model_settings.freq # Change to '15min' or '1h' if needed.
         )
-    
-    forecast_controller.forecast_elastic_net()
+    forecast_controller.forecast_elastic_net(bool_tune=False)
     #forecast_controller.forecast_ridge()
     #forecast_controller.forecast_lasso()
-    forecast_controller.forecast_adaptive_elastic_net()
+    #forecast_controller.forecast_xgboost()
+    #forecast_controller.forecast_adaptive_elastic_net()
 
 
 
@@ -58,17 +61,26 @@ def run_results(file_name: str):
 
 if __name__ == "__main__":
     run_models() 
+
+    print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
+    run_results(file_names.model_result_files.simple_average_forecast)
+
+    print("\n\nRUNNING XGBOOST RESULTS")
+    run_results(file_names.model_result_files.xgboost_forecast)
     
     print("RUNNING ELASTIC NET RESULTS")
     run_results(file_names.model_result_files.elastic_net_forecast)
+
+    print("RUNNING ELASTIC NET (TUNE) RESULTS")
+    run_results(file_names.model_result_files.tune_elnet_forecast_berend)
     
     print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
     run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
 
     print("\n\nRUNNING LASSO RESULTS")
-    #run_results(file_names.model_result_files.lasso_forecast)
+    run_results(file_names.model_result_files.lasso_forecast)
 
     print("\n\nRUNNING RIDGE RESULTS")
-    #run_results(file_names.model_result_files.ridge_forecast)
+    run_results(file_names.model_result_files.ridge_forecast)
 
     print("\n\n\n!!!DO NOT FORGET TO RUN THE ELASTIC NET WITH FIXED ALPHA!!!\n\n\n")

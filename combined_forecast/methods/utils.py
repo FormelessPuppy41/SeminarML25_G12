@@ -14,7 +14,7 @@ def tune_model_with_gridsearch(pipeline, param_grid, X_train, y_train, grid_para
     return grid
 
 
-def get_model_from_params(params: dict, adaptive: bool = False):
+def get_model_from_params(params: dict, adaptive: bool = False, fit_intercept: bool = True, standard_scaler_with_mean: bool = True):
     # Determine alpha
     if "alpha_grid" in params:
         alpha_grid = params["alpha_grid"]
@@ -39,17 +39,17 @@ def get_model_from_params(params: dict, adaptive: bool = False):
     # Return the estimator based on the l1_ratio value.
     # When using grid search over a range of l1_ratio values, default to ElasticNet.
     if l1_ratio <= 1e-6: # Use a small threshold, bcs otherwise you get warnings when testing with 0.0 of convergence issues. 
-        model = Ridge(alpha=alpha, random_state=random_state, max_iter=10000)
+        model = Ridge(alpha=alpha, random_state=random_state, max_iter=10000, fit_intercept=fit_intercept)
     elif l1_ratio == 1.0:
-        model = Lasso(alpha=alpha, random_state=random_state, max_iter=10000)
+        model = Lasso(alpha=alpha, random_state=random_state, max_iter=10000, fit_intercept=fit_intercept)
     else:
         # For other cases (including when multiple values are provided) default to ElasticNet.
-        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=random_state, max_iter=10000)
+        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=random_state, max_iter=10000, fit_intercept=fit_intercept)
         
     if adaptive:
         return make_pipeline(model)
     #return make_pipeline(model)
-    return make_pipeline(StandardScaler(), model)
+    return make_pipeline(StandardScaler(with_mean=standard_scaler_with_mean), model)
 
 
 

@@ -23,31 +23,35 @@ class ModelParameters:
             - n_jobs: number of parallel jobs 
             - verbose: verbosity level 
     """
-    # np.linspace(0.1, 1, 10)
-    # [0.1, 1.0, 10.0]
+    # np.logspace(-3, 3, 7) = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
+    
     ridge_params = {
-        'alpha_grid': np.linspace(0.1, 1, 10),#[0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
+        'alpha_grid': np.logspace(-3, 3, 77), #[0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
         'l1_ratio_grid': [0.0],           # Only one value: ridge behavior
     }
 
     lasso_params = {
-        'alpha_grid': np.linspace(0.1, 1, 10), #[0.01, 0.1, 1.0, 10.0], #np.linspace(0.1, 2, 10),
+        'alpha_grid': np.logspace(-3, 3, 7), #[0.01, 0.1, 1.0, 10.0], #np.linspace(0.1, 2, 10),
         'l1_ratio_grid': [1.0],           # Only one value: lasso behavior
     }
 
     elastic_net_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 10.0],#[0.01, 0.1, 1.0, 10.0], #[0.01, 0.1, 1.0, 10.0], 
-        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
+        'alpha_grid': np.logspace(-3, 3, 7),#[0.01, 0.1, 1.0, 10.0], #[0.01, 0.1, 1.0, 10.0], 
+        'l1_ratio_grid': [0.5] #[1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
     }
 
     adaptive_elastic_net_params = {
-        'alpha_grid': [0.01, 0.1, 1.0, 10.0],
+        'alpha_grid': np.logspace(-3, 3, 7), 
         'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
         'gamma_grid': [1.0]
     }
 
 
     xgboost_params = {
+        'n_estimators_grid': [75, 100, 125],
+        'max_depth_grid': [3, 5, 7],
+        'learning_rate_grid': [0.01, 0.1, 0.2],
+        'cv': 5,
         'n_estimators': 100,
         'max_depth': 3,
         'learning_rate': 0.1,
@@ -75,6 +79,8 @@ class ModelSettings:
     rolling_window_days = 165 # 165 own data, 30 or 61 for other paper. 
     datetime_col = 'datetime'
     freq = '15min' #'15min' or '1H'
+    fit_intercept = False
+    standard_scaler_with_mean = False
 
 
 @dataclass
@@ -123,9 +129,8 @@ class FileNames:
         ridge_forecast = 'ridge_forecast.csv'
         lasso_forecast = 'lasso_forecast.csv'
         elastic_net_forecast = 'elastic_net_forecast.csv'
+        tune_elnet_forecast_berend = 'tune_elastic_net_forecast.csv'
         adaptive_elastic_net_forecast = 'adaptive_elastic_net_forecast.csv'
-        elnet_forecast_berend = 'solar_forecast_elnet_berend.csv'
-        ridge_forecast_berend = 'solar_forecast_ridge_berend.csv'
         xgboost_forecast = 'xgboost_forecast.csv'
 
     @dataclass

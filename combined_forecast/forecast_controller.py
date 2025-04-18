@@ -103,7 +103,7 @@ class ForecastController:
         self._forecast_writer.write_forecast(forecast=lasso_result, file_name=self._file_names.lasso_forecast)
 
     
-    def forecast_elastic_net(self):
+    def forecast_elastic_net(self, bool_tune: bool = False):
         """
         Run the elastic net regression model and write the forecast to a CSV file
         """
@@ -112,7 +112,10 @@ class ForecastController:
                 lambda: self._forecast_runner.run_elastic_net(input_params=elastic_net_params),
                 forecast_name='Elastic Net'
             )
-        self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.elastic_net_forecast)
+        if bool_tune:
+            self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.tune_elnet_forecast_berend)
+        else: 
+            self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.elastic_net_forecast)
 
     
     def forecast_adaptive_elastic_net(self):

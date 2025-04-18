@@ -10,9 +10,11 @@ from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from tqdm import tqdm  
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from configuration import ModelParameters
+from configuration import ModelParameters, ModelSettings
 
 from .utils import data_interpolate_prev, data_interpolate_fut, get_model_from_params
+
+from glmnet import ElasticNet as GLMNetEN
 
 
 
@@ -45,15 +47,12 @@ def run_elastic_net(
         raise ValueError("Elastic Net parameters must be provided.")
     local_params = params.copy()
 
-    # Pop the grid values
     alpha_grid = local_params.pop('alpha_grid')
     l1_ratio_grid = local_params.pop('l1_ratio_grid')
     
-    # Build the model from the provided parameters (this determines model type)
-    model = get_model_from_params(params, adaptive=adaptive)
+    model = get_model_from_params(params, adaptive=adaptive, fit_intercept=ModelSettings.fit_intercept, standard_scaler_with_mean=ModelSettings.standard_scaler_with_mean)
     step_name = model.steps[-1][0]
 
-    # Create the grid - add l1_ratio only if the estimator supports it.
     param_grid = {f"{step_name}__alpha": alpha_grid}
     if "l1_ratio" in model.named_steps[step_name].get_params():
         param_grid[f"{step_name}__l1_ratio"] = l1_ratio_grid
@@ -67,17 +66,12 @@ def run_elastic_net(
     best_alpha = gs.best_params_[f'{step_name}__alpha']
     best_l1_ratio = gs.best_params_.get(f'{step_name}__l1_ratio')
 
-    # Extract coefficients and intercept
     coefs = best_model.named_steps[step_name].coef_
     intercept = best_model.named_steps[step_name].intercept_
 
-    # Print relevant information
     test = test.copy()
     test['prediction'] = predictions
     return test, best_alpha, best_l1_ratio, coefs
-
-
-
 
 
 def run_elastic_net_adaptive(
@@ -88,6 +82,64 @@ def run_elastic_net_adaptive(
     params: Dict[str, Any]
 ) -> Tuple[pd.DataFrame, float, float, np.ndarray]:
     """
+    Run an adaptive Elastic Net where only the L1 penalty is weighted via penalty_factor.
+    This uses an initial Ridge to get β˜, computes adaptive weights, then
+    scales features and falls back to the sklearn-based run_elastic_net.
+    """
+    # 1) initial Ridge to get β˜
+    ridge_params = params.get('ridge_params', {})
+    ridge_pipe = get_model_from_params(ridge_params, adaptive=False)
+    ridge_pipe.fit(train[features], train[target])
+    step = ridge_pipe.steps[-1][0]
+    beta_init = ridge_pipe.named_steps[step].coef_
+
+    # 2) compute adaptive weights
+    gamma = params.get('gamma', 1.0)
+    epsilon = params.get('epsilon', 1e-6)
+    weights = 1.0 / (np.abs(beta_init) ** gamma + epsilon)
+
+    # 3) hyperparameter grids
+    alpha_grid     = params.get('alpha_grid')
+    l1_ratio_grid  = params.get('l1_ratio_grid')
+
+    # 4) Scale features by adaptive weights, then hand off to sklearn-based run_elastic_net
+    def scale_df(df_in: pd.DataFrame) -> pd.DataFrame:
+        df_scaled = df_in.copy()
+        for i, col in enumerate(features):
+            df_scaled[col] = df_scaled[col] / weights[i]
+        return df_scaled
+
+    train_scaled = scale_df(train)
+    test_scaled  = scale_df(test)
+
+    # call your existing GridSearchCV/sklearn ElasticNet wrapper
+    pred_df, best_alpha, best_l1_ratio, coefs_scaled = run_elastic_net(
+        train_scaled,
+        test_scaled,
+        target,
+        features,
+        {
+            'alpha_grid':    alpha_grid,
+            'l1_ratio_grid': l1_ratio_grid,
+            # include any other sklearn params here if needed
+        },
+        adaptive=True
+    )
+
+    # 5) Rescale the coefficients back to the original scale
+    coefs = coefs_scaled / weights
+
+    return pred_df, best_alpha, best_l1_ratio, coefs
+
+
+"""def run_elastic_net_adaptive(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    target: str,
+    features: List[str],
+    params: Dict[str, Any]
+) -> Tuple[pd.DataFrame, float, float, np.ndarray]:
+    ""
     Run an adaptive elastic net regression using initial coefficient estimates
     to compute adaptive weights, scale the features, run elastic net, then 
     adjust the coefficients back to the original scale.
@@ -107,13 +159,13 @@ def run_elastic_net_adaptive(
     
     Returns:
         A tuple: (predicted test DataFrame, best_alpha, best_l1_ratio, adjusted coefficients)
-    """
+    ""
     def scale_features(
         df: pd.DataFrame, 
         features: List[str], 
         weights: np.ndarray
     ) -> pd.DataFrame:
-        """
+        ""
         Scale feature columns in the DataFrame by dividing each by its respective weight.
         
         Args:
@@ -123,7 +175,7 @@ def run_elastic_net_adaptive(
             
         Returns:
             A new DataFrame with scaled features.
-        """
+        ""
         df_scaled = df.copy()
         # Scale each feature column using the corresponding weight
         for i, col in enumerate(features):
@@ -147,6 +199,8 @@ def run_elastic_net_adaptive(
     epsilon = params.get("epsilon", 1e-6)
     weights = 1.0 / (np.abs(beta_init) ** gamma + epsilon)
 
+    # Scaling is nu op X, moet op de coefficienten zijn. Moeten de objective function aanpassen. 
+
     # 4. Scale standardized features by weights
     train_scaled = scale_features(train_std, features, weights)
     test_scaled = scale_features(test_std, features, weights)
@@ -158,8 +212,9 @@ def run_elastic_net_adaptive(
 
     # 6. Rescale coefficients back
     coefs = coefs_scaled / weights
+    
     return pred_df, best_alpha, best_l1_ratio, coefs
-
+"""
 
 """def run_elastic_net_adaptive(
     train: pd.DataFrame,

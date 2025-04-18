@@ -46,6 +46,42 @@ class ForecastResultProcessor:
             'MAE': mean_absolute_error(y_true, y_pred),
             'R2': r2_score(y_true, y_pred)
         }
+    
+    def plot_daily_alpha_l1(df: pd.DataFrame):
+        """
+        Aggregates best_alpha and best_l1_ratio to daily frequency
+        (taking the first value of each day) and plots them.
+
+        Parameters:
+        df (pd.DataFrame): DataFrame with 'target_time', 'best_alpha', 'best_l1_ratio'.
+                        'target_time' must be datetime or convertible to datetime.
+        """
+        # Ensure 'target_time' is datetime and set as index
+        df['target_time'] = pd.to_datetime(df['target_time'])
+        df = df.set_index('target_time')
+
+        # Resample to daily frequency, taking the first available value each day
+        df_daily = df.resample('D').first()
+
+        # Plot Best Alpha over days
+        plt.figure()
+        plt.plot(df_daily.index, df_daily['best_alpha'], marker='o', linestyle='-')
+        plt.xlabel('Date')
+        plt.ylabel('Best Alpha')
+        plt.title('Daily Best Alpha (2012–2018)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
+
+        # Plot Best L1 Ratio over days
+        plt.figure()
+        plt.plot(df_daily.index, df_daily['best_l1_ratio'], marker='o', linestyle='-')
+        plt.xlabel('Date')
+        plt.ylabel('Best L1 Ratio')
+        plt.title('Daily Best L1 Ratio (2012–2018)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
 
     def plot_forecast_vs_actual(self, title: str = "Forecast vs Actual"):
         """
