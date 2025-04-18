@@ -28,13 +28,10 @@ def run_models():
     model_settings = ModelSettings()
 
     df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
-    # Print the number of time that HR has a value non zero, but K is zero. 
-    hr_zero_and_k_non_zero = df[(df['HR'] == 0) & (df['K'] != 0)]
-    hr_non_zero_and_k_zero = df[(df['HR'] != 0) & (df['K'] == 0)]
-
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     print(df)
-    df = df[df[model_settings.datetime_col] >= pd.to_datetime('04-01-2018')]
+
+    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('04-01-2018')]
     #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2014')]
     #print(df)
 

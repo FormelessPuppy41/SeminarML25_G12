@@ -27,21 +27,32 @@ import pandas as pd
 def _soft_thresholding(x, lam):
     return np.sign(x) * np.maximum(np.abs(x) - lam, 0.0)
 
+import numpy as np
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.linear_model import Ridge
+
+def _soft_thresholding(x, lam):
+    return np.sign(x) * np.maximum(np.abs(x) - lam, 0.0)
+
+
 class AdaptiveElasticNet(BaseEstimator, RegressorMixin):
     """
     Adaptive Elastic Net:
-        min 1/(2n)||y - Xβ||^2 + λ[ α∑_j w_j|β_j| + (1-α)/2 ||β||_2^2 ]
-    with w_j = 1/|β_ridge,j|^γ
+
+        min 1/(2n)||y - Xβ||² + λ [ α Σ_j w_j |β_j| + (1-α)/2 ||β||² ]
+        with w_j = 1 / |β̂_ridge,j|^γ
     """
-    def __init__(self,
-                 lmbda=1.0,
-                 alpha=0.5,
-                 gamma=1.0,
-                 ridge_alpha=1.0,
-                 fit_intercept=True,
-                 standardize=True,
-                 max_iter=1000,
-                 tol=1e-6):
+    def __init__(
+        self,
+        lmbda: float = 1.0,
+        alpha: float = 0.5,
+        gamma: float = 1.0,
+        ridge_alpha: float = 1.0,
+        fit_intercept: bool = True,
+        standardize: bool = True,
+        max_iter: int = 1000,
+        tol: float = 1e-6
+    ):
         self.lmbda = lmbda
         self.alpha = alpha
         self.gamma = gamma
@@ -51,69 +62,74 @@ class AdaptiveElasticNet(BaseEstimator, RegressorMixin):
         self.max_iter = max_iter
         self.tol = tol
 
+    # ------------------------------------------------------------------
+    # training
+    # ------------------------------------------------------------------
     def fit(self, X, y):
-        # basic setup
-        X = np.asarray(X, float)
-        y = np.asarray(y, float)
+        X = np.asarray(X, dtype=float)
+        y = np.asarray(y, dtype=float)
         n, p = X.shape
 
-        # center
+        # ---------- means ----------
+        self.X_mean_ = X.mean(axis=0)
         if self.fit_intercept:
             self.y_mean_ = y.mean()
             y = y - self.y_mean_
-            self.X_mean_ = X.mean(axis=0)
             X = X - self.X_mean_
+        else:
+            self.y_mean_ = 0.0     # used in predict()
 
-        # scale
+        # ---------- scales ----------
         self.X_scale_ = np.std(X, axis=0, ddof=0)
         self.X_scale_[self.X_scale_ == 0.0] = 1.0
 
         if self.standardize:
-            # 2a) optionally center: subtract column means
-            self.X_mean_ = np.mean(X, axis=0)
-            X = (X - self.X_mean_) / self.X_scale_
-        else:
-            # 2b) no centering: just scale
             X = X / self.X_scale_
-            # keep a zero‐mean placeholder so intercept logic stays valid
-            self.X_mean_ = np.zeros_like(self.X_scale_)
 
-        # 1) ridge init
+        # ---------- ridge warm‑start ----------
         ridge = Ridge(alpha=self.ridge_alpha, fit_intercept=False)
         ridge.fit(X, y)
-        beta_ridge = ridge.coef_.copy()
+        beta = beta_ridge = ridge.coef_.copy()
 
-        # 2) weights
+        # ---------- adaptive weights ----------
         eps = 1e-8
-        self.weights_ = 1.0 / (np.abs(beta_ridge)**self.gamma + eps)
+        self.weights_ = 1.0 / (np.abs(beta_ridge) ** self.gamma + eps)
 
-        # 3) coordinate‐descent
-        beta = beta_ridge.copy()
-        Xj_sq = np.sum(X*X, axis=0) / n
+        # ---------- coordinate descent ----------
+        Xj_sq = (X * X).sum(axis=0) / n
         lam_l1 = self.lmbda * self.alpha
-        lam_l2 = self.lmbda * (1 - self.alpha)
+        lam_l2 = self.lmbda * (1.0 - self.alpha)
 
         for _ in range(self.max_iter):
             beta_old = beta.copy()
             for j in range(p):
-                r_j = y - (X @ beta) + X[:, j]*beta[j]
-                rho = (X[:, j] @ r_j)/n
+                r_j = y - X @ beta + X[:, j] * beta[j]
+                rho = (X[:, j] @ r_j) / n
                 thresh = lam_l1 * self.weights_[j]
                 beta[j] = _soft_thresholding(rho, thresh) / (Xj_sq[j] + lam_l2)
             if np.max(np.abs(beta - beta_old)) < self.tol:
                 break
 
-        # un‐scale & intercept
-        self.coef_ = beta / self.X_scale_
+        # ---------- store coefficients ----------
+        self.beta_scaled_ = beta.copy()          # β in the *standardised* space
+        self.coef_ = beta / self.X_scale_        # β in the *original* space
+
+        # ---------- intercept ----------
         if self.fit_intercept:
-            self.intercept_ = self.y_mean_ - self.coef_.dot(self.X_mean_)
+            self.intercept_ = self.y_mean_ - (self.coef_ * self.X_mean_).sum()
         else:
             self.intercept_ = 0.0
+
         return self
 
+    # ------------------------------------------------------------------
+    # prediction  (expects raw, unscaled X)
+    # ------------------------------------------------------------------
     def predict(self, X):
-        X = np.asarray(X, float)
-        return X.dot(self.coef_) + self.intercept_
+        X = np.asarray(X, dtype=float)
+        Xs = (X - self.X_mean_) / self.X_scale_
+        return Xs @ self.beta_scaled_ + self.y_mean_
+
 
 
 def grid_search_adaptive_enet(
@@ -135,6 +151,9 @@ def grid_search_adaptive_enet(
     grid = list(ParameterGrid(param_grid))
     records = []
     tscv = TimeSeriesSplit(n_splits=cv_splits)
+
+    if isinstance(gamma, list):
+        gamma = gamma[0]
 
     for params in grid:
         mses = []

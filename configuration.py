@@ -26,7 +26,7 @@ class ModelParameters:
     # np.logspace(-3, 3, 7) = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
     
     ridge_params = {
-        'alpha_grid': np.logspace(-3, 3, 77), #[0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
+        'alpha_grid': np.logspace(-3, 3, 7), #[0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
         'l1_ratio_grid': [0.0],           # Only one value: ridge behavior
     }
 
