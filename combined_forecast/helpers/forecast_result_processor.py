@@ -47,7 +47,7 @@ class ForecastResultProcessor:
             'R2': r2_score(y_true, y_pred)
         }
     
-    def plot_daily_alpha_l1(df: pd.DataFrame):
+    def plot_daily_alpha_l1(self, df: pd.DataFrame):
         """
         Aggregates best_alpha and best_l1_ratio to daily frequency
         (taking the first value of each day) and plots them.

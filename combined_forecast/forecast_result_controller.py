@@ -61,7 +61,7 @@ class ForecastResultController:
         """
         result_df = DataLoader().load_model_results(file_name)
         forecast_result_processor = ForecastResultProcessor(result_df)
-        forecast_result_processor.plot_daily_alpha_l1()
+        forecast_result_processor.plot_daily_alpha_l1(result_df)
 
 
     def visualise_ridge(self):

@@ -16,6 +16,158 @@ from .utils import data_interpolate_prev, data_interpolate_fut, get_model_from_p
 
 from glmnet import ElasticNet as GLMNetEN
 
+# --- INSERT HERE: adaptive‐Enet class + grid‐search helper ---
+
+import numpy as np
+from sklearn.linear_model import Ridge
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.model_selection import TimeSeriesSplit
+import pandas as pd
+
+def _soft_thresholding(x, lam):
+    return np.sign(x) * np.maximum(np.abs(x) - lam, 0.0)
+
+class AdaptiveElasticNet(BaseEstimator, RegressorMixin):
+    """
+    Adaptive Elastic Net:
+        min 1/(2n)||y - Xβ||^2 + λ[ α∑_j w_j|β_j| + (1-α)/2 ||β||_2^2 ]
+    with w_j = 1/|β_ridge,j|^γ
+    """
+    def __init__(self,
+                 lmbda=1.0,
+                 alpha=0.5,
+                 gamma=1.0,
+                 ridge_alpha=1.0,
+                 fit_intercept=True,
+                 standardize=True,
+                 max_iter=1000,
+                 tol=1e-6):
+        self.lmbda = lmbda
+        self.alpha = alpha
+        self.gamma = gamma
+        self.ridge_alpha = ridge_alpha
+        self.fit_intercept = fit_intercept
+        self.standardize = standardize
+        self.max_iter = max_iter
+        self.tol = tol
+
+    def fit(self, X, y):
+        # basic setup
+        X = np.asarray(X, float)
+        y = np.asarray(y, float)
+        n, p = X.shape
+
+        # center
+        if self.fit_intercept:
+            self.y_mean_ = y.mean()
+            y = y - self.y_mean_
+            self.X_mean_ = X.mean(axis=0)
+            X = X - self.X_mean_
+
+        # scale
+        self.X_scale_ = np.std(X, axis=0, ddof=0)
+        self.X_scale_[self.X_scale_ == 0.0] = 1.0
+
+        if self.standardize:
+            # 2a) optionally center: subtract column means
+            self.X_mean_ = np.mean(X, axis=0)
+            X = (X - self.X_mean_) / self.X_scale_
+        else:
+            # 2b) no centering: just scale
+            X = X / self.X_scale_
+            # keep a zero‐mean placeholder so intercept logic stays valid
+            self.X_mean_ = np.zeros_like(self.X_scale_)
+
+        # 1) ridge init
+        ridge = Ridge(alpha=self.ridge_alpha, fit_intercept=False)
+        ridge.fit(X, y)
+        beta_ridge = ridge.coef_.copy()
+
+        # 2) weights
+        eps = 1e-8
+        self.weights_ = 1.0 / (np.abs(beta_ridge)**self.gamma + eps)
+
+        # 3) coordinate‐descent
+        beta = beta_ridge.copy()
+        Xj_sq = np.sum(X*X, axis=0) / n
+        lam_l1 = self.lmbda * self.alpha
+        lam_l2 = self.lmbda * (1 - self.alpha)
+
+        for _ in range(self.max_iter):
+            beta_old = beta.copy()
+            for j in range(p):
+                r_j = y - (X @ beta) + X[:, j]*beta[j]
+                rho = (X[:, j] @ r_j)/n
+                thresh = lam_l1 * self.weights_[j]
+                beta[j] = _soft_thresholding(rho, thresh) / (Xj_sq[j] + lam_l2)
+            if np.max(np.abs(beta - beta_old)) < self.tol:
+                break
+
+        # un‐scale & intercept
+        self.coef_ = beta / self.X_scale_
+        if self.fit_intercept:
+            self.intercept_ = self.y_mean_ - self.coef_.dot(self.X_mean_)
+        else:
+            self.intercept_ = 0.0
+        return self
+
+    def predict(self, X):
+        X = np.asarray(X, float)
+        return X.dot(self.coef_) + self.intercept_
+
+
+def grid_search_adaptive_enet(
+    X, y,
+    lambdas, alphas,
+    cv_splits=5,
+    gamma=1.0,
+    ridge_alpha=1.0,
+    fit_intercept=True,
+    standardize=True,
+    max_iter=1000,
+    tol=1e-6
+):
+    """
+    Returns (results_df, best_params_dict) for grid over (lmbda, alpha).
+    """
+    from sklearn.model_selection import ParameterGrid
+    param_grid = {'lmbda': lambdas, 'alpha': alphas}
+    grid = list(ParameterGrid(param_grid))
+    records = []
+    tscv = TimeSeriesSplit(n_splits=cv_splits)
+
+    for params in grid:
+        mses = []
+        for train_idx, test_idx in tscv.split(X):
+            Xtr, Xte = X[train_idx], X[test_idx]
+            ytr, yte = y[train_idx], y[test_idx]
+
+            model = AdaptiveElasticNet(
+                lmbda=params['lmbda'],
+                alpha=params['alpha'],
+                gamma=gamma,
+                ridge_alpha=ridge_alpha,
+                fit_intercept=fit_intercept,
+                standardize=standardize,
+                max_iter=max_iter,
+                tol=tol
+            )
+            model.fit(Xtr, ytr)
+            ypred = model.predict(Xte)
+            mses.append(((yte - ypred)**2).mean())
+
+        records.append({
+            'lmbda': params['lmbda'],
+            'alpha': params['alpha'],
+            'mean_mse': np.mean(mses)
+        })
+
+    df = pd.DataFrame(records).sort_values('mean_mse').reset_index(drop=True)
+    best = df.iloc[0].to_dict()
+    return df, best
+
+# --- END INSERT ---
+
 
 
 def run_elastic_net(
@@ -82,10 +234,75 @@ def run_elastic_net_adaptive(
     params: Dict[str, Any]
 ) -> Tuple[pd.DataFrame, float, float, np.ndarray]:
     """
+    Adapted to use our AdaptiveElasticNet + grid‐search.
+    Required params keys:
+      - 'lambdas': list of λ to try
+      - 'alphas' : list of α to try
+    Optional keys:
+      - 'gamma', 'ridge_alpha', 'fit_intercept', 'standardize', 'max_iter', 'tol'
+    """
+    # extract numpy arrays
+    X_train = train[features].values
+    y_train = train[target].values
+    X_test  = test[features].values
+
+    # pull grid parameters
+    lambdas    = params.get('alpha_grid')
+    alphas     = params.get('l1_ratio_grid')
+    gamma      = params.get('gamma_grid')
+    ridge_alpha= params.get('ridge_alpha', 1.0)
+    fit_int    = ModelSettings.fit_intercept
+    stdz       = ModelSettings.standard_scaler_with_mean
+    max_it     = params.get('max_iter', 1000)
+    tol        = params.get('tol', 1e-6)
+    
+    # 1) grid‐search on train
+    results_df, best = grid_search_adaptive_enet(
+        X_train, y_train,
+        lambdas, alphas,
+        cv_splits=5,
+        gamma=gamma,
+        ridge_alpha=ridge_alpha,
+        fit_intercept=fit_int,
+        standardize=stdz,
+        max_iter=max_it,
+        tol=tol
+    )
+    best_lmbda = best['lmbda']
+    best_alpha = best['alpha']
+    
+    # 2) fit final model on full train
+    final_model = AdaptiveElasticNet(
+        lmbda=best_lmbda,
+        alpha=best_alpha,
+        gamma=gamma,
+        ridge_alpha=ridge_alpha,
+        fit_intercept=fit_int,
+        standardize=stdz,
+        max_iter=max_it,
+        tol=tol
+    ).fit(X_train, y_train)
+
+    # 3) predict
+    test_out = test.copy()
+    test_out['prediction'] = final_model.predict(X_test)
+
+    # 4) return preds + best grid params + coefficients
+    return test_out, best_lmbda, best_alpha, final_model.coef_
+
+
+"""def run_elastic_net_adaptive(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    target: str,
+    features: List[str],
+    params: Dict[str, Any]
+) -> Tuple[pd.DataFrame, float, float, np.ndarray]:
+    ""
     Run an adaptive Elastic Net where only the L1 penalty is weighted via penalty_factor.
     This uses an initial Ridge to get β˜, computes adaptive weights, then
     scales features and falls back to the sklearn-based run_elastic_net.
-    """
+    ""
     # 1) initial Ridge to get β˜
     ridge_params = params.get('ridge_params', {})
     ridge_pipe = get_model_from_params(ridge_params, adaptive=False)
@@ -131,7 +348,7 @@ def run_elastic_net_adaptive(
 
     return pred_df, best_alpha, best_l1_ratio, coefs
 
-
+"""
 """def run_elastic_net_adaptive(
     train: pd.DataFrame,
     test: pd.DataFrame,
@@ -215,7 +432,6 @@ def run_elastic_net_adaptive(
     
     return pred_df, best_alpha, best_l1_ratio, coefs
 """
-
 """def run_elastic_net_adaptive(
     train: pd.DataFrame,
     test: pd.DataFrame,

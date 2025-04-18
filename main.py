@@ -34,7 +34,7 @@ def run_models():
 
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     print(df)
-    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('04-01-2018')]
+    df = df[df[model_settings.datetime_col] >= pd.to_datetime('04-01-2018')]
     #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2014')]
     #print(df)
 
@@ -47,11 +47,11 @@ def run_models():
             datetime_col=model_settings.datetime_col,
             freq=model_settings.freq # Change to '15min' or '1h' if needed.
         )
-    forecast_controller.forecast_elastic_net(bool_tune=False)
+    #forecast_controller.forecast_elastic_net(bool_tune=False)
     #forecast_controller.forecast_ridge()
     #forecast_controller.forecast_lasso()
     #forecast_controller.forecast_xgboost()
-    #forecast_controller.forecast_adaptive_elastic_net()
+    forecast_controller.forecast_adaptive_elastic_net()
 
 
 
@@ -66,7 +66,7 @@ def run_results(file_name: str):
         forecast_result_processor.visualise_alpha_l1(file_name)
 
 if __name__ == "__main__":
-    #run_models() 
+    run_models() 
 
     print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
     run_results(file_names.model_result_files.simple_average_forecast)
