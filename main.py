@@ -58,9 +58,15 @@ def run_models():
 def run_results(file_name: str):
     forecast_result_processor = ForecastResultController()
     forecast_result_processor.compute_metrics(file_name)
+    if file_name in [
+        file_names.model_result_files.elastic_net_forecast, 
+        file_names.model_result_files.tune_elastic_net_forecast, 
+        file_names.model_result_files.adaptive_elastic_net_forecast
+        ]:
+        forecast_result_processor.visualise_alpha_l1(file_name)
 
 if __name__ == "__main__":
-    run_models() 
+    #run_models() 
 
     print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
     run_results(file_names.model_result_files.simple_average_forecast)
@@ -72,7 +78,7 @@ if __name__ == "__main__":
     run_results(file_names.model_result_files.elastic_net_forecast)
 
     print("RUNNING ELASTIC NET (TUNE) RESULTS")
-    run_results(file_names.model_result_files.tune_elnet_forecast_berend)
+    run_results(file_names.model_result_files.tune_elastic_net_forecast)
     
     print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
     run_results(file_names.model_result_files.adaptive_elastic_net_forecast)

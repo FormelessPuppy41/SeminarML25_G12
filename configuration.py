@@ -129,7 +129,7 @@ class FileNames:
         ridge_forecast = 'ridge_forecast.csv'
         lasso_forecast = 'lasso_forecast.csv'
         elastic_net_forecast = 'elastic_net_forecast.csv'
-        tune_elnet_forecast_berend = 'tune_elastic_net_forecast.csv'
+        tune_elastic_net_forecast = 'tune_elastic_net_forecast.csv'
         adaptive_elastic_net_forecast = 'adaptive_elastic_net_forecast.csv'
         xgboost_forecast = 'xgboost_forecast.csv'
 
