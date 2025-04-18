@@ -113,7 +113,7 @@ class ForecastController:
                 forecast_name='Elastic Net'
             )
         if bool_tune:
-            self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.tune_elnet_forecast_berend)
+            self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.tune_elastic_net_forecast)
         else: 
             self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.elastic_net_forecast)
 

@@ -79,8 +79,8 @@ class ModelSettings:
     rolling_window_days = 165 # 165 own data, 30 or 61 for other paper. 
     datetime_col = 'datetime'
     freq = '15min' #'15min' or '1H'
-    fit_intercept = False
-    standard_scaler_with_mean = False
+    fit_intercept = False # False for own data, True for price data
+    standard_scaler_with_mean = False # False for own data, True for price data
 
 
 @dataclass

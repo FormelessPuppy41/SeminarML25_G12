@@ -27,7 +27,7 @@ file_names = FileNames()
 def run_models():
     model_settings = ModelSettings()
 
-    df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
+    df = DataLoader().load_input_data(file_names.input_files.data_different_group)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
     print(df)
 
