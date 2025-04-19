@@ -27,13 +27,11 @@ file_names = FileNames()
 def run_models():
     model_settings = ModelSettings()
 
-    df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
+    df = DataLoader().load_input_data(file_names.input_files.)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
-    print(df)
-
-    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('04-01-2018')]
+    #df = df[df[model_settings.datetime_col] >= pd.to_datetime('07-01-2018')]
     #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2014')]
-    #print(df)
+    print(df)
 
     forecast_controller = ForecastController(
             df=df, 
@@ -45,11 +43,11 @@ def run_models():
             freq=model_settings.freq # Change to '15min' or '1h' if needed.
         )
     #forecast_controller.forecast_simple_average()
-    forecast_controller.forecast_elastic_net(bool_tune=True)
+    #forecast_controller.forecast_elastic_net(bool_tune=True)
     #forecast_controller.forecast_ridge()
     #forecast_controller.forecast_lasso()
     #forecast_controller.forecast_xgboost()
-    forecast_controller.forecast_adaptive_elastic_net()
+    #forecast_controller.forecast_adaptive_elastic_net()
 
 
 
@@ -75,10 +73,10 @@ def run_results(file_name: str):
     )
 
 if __name__ == "__main__":
-    #run_models() 
+    run_models() 
 
-    #print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
-    #run_results(file_names.model_result_files.simple_average_forecast)
+    print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
+    run_results(file_names.model_result_files.simple_average_forecast)
 
     #print("\n\nRUNNING XGBOOST RESULTS")
     #run_results(file_names.model_result_files.xgboost_forecast)
@@ -86,11 +84,11 @@ if __name__ == "__main__":
     #print("RUNNING ELASTIC NET RESULTS")
     #run_results(file_names.model_result_files.elastic_net_forecast)
 
-    print("RUNNING ELASTIC NET (TUNE) RESULTS")
-    run_results(file_names.model_result_files.tune_elastic_net_forecast)
+    #print("RUNNING ELASTIC NET (TUNE) RESULTS")
+    #run_results(file_names.model_result_files.tune_elastic_net_forecast)
     
-    #print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
-    #run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
+    print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
+    run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
 
     """print("\n\nRUNNING LASSO RESULTS")
     run_results(file_names.model_result_files.lasso_forecast)
