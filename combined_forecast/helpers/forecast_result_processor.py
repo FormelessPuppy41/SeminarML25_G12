@@ -69,16 +69,17 @@ class ForecastResultProcessor:
 
         plt.figure(figsize=(cols*5, rows*4))
         for i, (df, name) in enumerate(zip(list_of_dfs, model_names)):
-            print(f"Plotting {name} Best Alpha... {i}")
+            #print(f"Plotting {name} Best Alpha... {i}")
             df = df.copy()
             df['target_time'] = pd.to_datetime(df['target_time'])
             df = df.set_index('target_time')
             df_daily = df[['best_alpha']].resample('D').mean()
+            name = name.split('_forecast')[0]  # Remove file extension if present
 
             plt.subplot(rows, cols, i + 1)
             plt.plot(df_daily.index, df_daily['best_alpha'], marker='o', markersize=2, linestyle='-', linewidth=1)
             plt.yscale('log')
-            plt.title(f'{name} - Best Alpha', fontsize=10)
+            plt.title(f'{name}', fontsize=10)
             plt.xticks(rotation=45)
             plt.tight_layout()
 
@@ -105,18 +106,20 @@ class ForecastResultProcessor:
 
         if valid_l1_models:
             num_valid = len(valid_l1_models)
-            cols = 3
+            cols = 2
             rows = math.ceil(num_valid / cols)
 
             plt.figure(figsize=(cols*5, rows*4))
             for i, (df_daily, name) in enumerate(zip(valid_l1_models, valid_model_names)):
+                name = name.split('_forecast')[0]  # Remove file extension if present
+
                 plt.subplot(rows, cols, i + 1)
                 plt.plot(df_daily.index, df_daily['best_l1_ratio'], marker='o', markersize=2, linestyle='-', linewidth=1)
-                plt.title(f'{name} - Best L1 Ratio', fontsize=10)
+                plt.title(f'{name}', fontsize=10)
                 plt.xticks(rotation=45)
                 plt.tight_layout()
 
-            plt.suptitle('Daily Best L1 Ratio', y=1.02, fontsize=16)
+            #plt.suptitle('Daily Best L1 Ratio', y=1.02, fontsize=16)
             plt.tight_layout()
             plt.show()
         else:
