@@ -73,7 +73,7 @@ def run_results(file_name: str):
     )
 
 if __name__ == "__main__":
-    run_models() 
+    #run_models() 
 
     print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
     #run_results(file_names.model_result_files.simple_average_forecast)
