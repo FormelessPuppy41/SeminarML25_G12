@@ -26,8 +26,13 @@ def run_data_generation():
 def run_models():
     model_settings = ModelSettings()
 
+    # Either use 'real_error_data2' or 'data_different_group' for testing
+    # Based on the data, you must modify the model_settings in configuration.py
+    # to match the data.
     df = DataLoader().load_input_data(file_names.input_files.real_error_data2)
     df[model_settings.datetime_col] = pd.to_datetime(df[model_settings.datetime_col])
+
+    # Uncomment the following lines to filter the data based on the datetime column
     #df = df[df[model_settings.datetime_col] >= pd.to_datetime('05-01-2018')]
     #df = df[df[model_settings.datetime_col] < pd.to_datetime('12-31-2014')]
     print(df)
@@ -36,17 +41,22 @@ def run_models():
             df=df, 
             target=model_settings.target, 
             features=model_settings.features,
-            forecast_horizon=model_settings.forecast_horizon, # 96 for 15min, 24 for 1H
-            rolling_window_days=model_settings.rolling_window_days, # 165 own data, 30 or 61 for other paper.
+            forecast_horizon=model_settings.forecast_horizon, # 96 for 15min, 24 for 1H (hr vs price resp.)
+            rolling_window_days=model_settings.rolling_window_days, 
             datetime_col=model_settings.datetime_col,
-            freq=model_settings.freq # Change to '15min' or '1h' if needed.
+            freq=model_settings.freq # Change to '15min' or '1h' for hr and price forecasting resp.
         )
-    #forecast_controller.forecast_simple_average()
-    #forecast_controller.forecast_elastic_net(bool_tune=True)
-    #forecast_controller.forecast_ridge()
-    #forecast_controller.forecast_lasso()
-    #forecast_controller.forecast_xgboost()
+    forecast_controller.forecast_simple_average()
+    # The following two methods write to different files, however, they use the same configuration input. 
+    # Therefore, you cannot run them simultaneously. 
+    # Please comment out one of them and adjust the elnet_params in configuration.py accordingly. 
+    forecast_controller.forecast_elastic_net(bool_tune=True)
+    forecast_controller.forecast_elastic_net(bool_tune=False)
+    
+    forecast_controller.forecast_ridge()
+    forecast_controller.forecast_lasso()
     forecast_controller.forecast_adaptive_elastic_net()
+    forecast_controller.forecast_xgboost()
 
 
 
@@ -72,27 +82,27 @@ def run_results(file_name: str):
     )
 
 if __name__ == "__main__":
-    #run_models() 
+    run_models() 
 
     print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
-    #run_results(file_names.model_result_files.simple_average_forecast)
+    run_results(file_names.model_result_files.simple_average_forecast)
 
-    #print("\n\nRUNNING XGBOOST RESULTS")
-    #run_results(file_names.model_result_files.xgboost_forecast)
+    print("\n\nRUNNING XGBOOST RESULTS")
+    run_results(file_names.model_result_files.xgboost_forecast)
     
-    #print("RUNNING ELASTIC NET RESULTS")
-    #run_results(file_names.model_result_files.elastic_net_forecast)
+    print("RUNNING ELASTIC NET RESULTS")
+    run_results(file_names.model_result_files.elastic_net_forecast)
 
-    #print("RUNNING ELASTIC NET (TUNE) RESULTS")
-    #run_results(file_names.model_result_files.tune_elastic_net_forecast)
+    print("RUNNING ELASTIC NET (TUNE) RESULTS")
+    run_results(file_names.model_result_files.tune_elastic_net_forecast)
     
     print("\n\nRUNNING ADAPTIVE ELASTIC NET RESULTS")
     run_results(file_names.model_result_files.adaptive_elastic_net_forecast)
 
-    """print("\n\nRUNNING LASSO RESULTS")
+    print("\n\nRUNNING LASSO RESULTS")
     run_results(file_names.model_result_files.lasso_forecast)
 
     print("\n\nRUNNING RIDGE RESULTS")
-    run_results(file_names.model_result_files.ridge_forecast)"""
+    run_results(file_names.model_result_files.ridge_forecast)
 
     print("\n\n\n!!!DO NOT FORGET TO RUN THE ELASTIC NET WITH FIXED ALPHA!!!\n\n\n")

@@ -64,16 +64,49 @@ We generate synthetic forecasts, combine them using various machine learning met
 ## How to Run the Project
 
 1. **Set up the environment**  
-   Make sure you have a Python environment (recommend using `.venv`) and install the necessary dependencies.
+   Create a virtual environment (recommended: `.venv`) and install the required Python packages (e.g., `pandas`, `scikit-learn`, `xgboost`).
 
-2. **Configure settings**  
-   Modify `configuration.py` if you want to change model parameters or data paths.
+2. **Configure model settings**  
+   Open the `configuration.py` file and adjust the `ModelSettings` class based on the data you want to use:
 
-3. **Run the main file**  
-   Use the `main.py` script to generate data, estimate models, and visualize results:
+   - **For HR data** (`real_error_data2`):
+     - `features`: `["A1", "A2", "A3", "A4", "A5", "A6"]`
+     - `forecast_horizon`: `96` (for 15-minute resolution)
+     - `freq`: `"15min"`
+     - `fit_intercept`: `False`
+     - `standard_scaler_with_mean`: `False`
+
+   - **For Price data** (`data_different_group`):
+     - Add feature `"A7"`: `["A1", "A2", "A3", "A4", "A5", "A6", "A7"]`
+     - `forecast_horizon`: `24` (for hourly resolution)
+     - `freq`: `"1H"`
+     - `fit_intercept`: `True`
+     - `standard_scaler_with_mean`: `True`
+
+   **Important:**  
+   These settings control whether an intercept is fitted and whether the data is demeaned when standardizing.  
+   - For **price forecasts**, fitting an intercept and removing the mean is fine because there is no sparcity.
+   - For **HR solar data**, raw standardization (without mean adjustment) is best due to sparcity.
+
+3. **Run the main script**  
+   Execute the `main.py` file to generate synthetic forecasts, train combination models, and visualize results:
    ```bash
    python main.py
    ```
+
+   Inside `main.py`, the key function is:
+   ```python
+   run_models()
+   ```
+   This loads the correct dataset based on your settings, applies preprocessing, runs the forecast models, and saves results automatically.
+
+---
+
+## Quick Notes:
+
+- You **must** manually adjust `configuration.py` every time you switch between HR data and Price data.
+- In `run_models()`, make sure the input data loaded (e.g., `real_error_data2` vs `data_different_group`) matches your `ModelSettings`.
+- When running **forecast_elastic_net**, note that `bool_tune=True` and `bool_tune=False` **write to different output files**, but **use the same settings** — avoid running both together unless handled carefully.
 
 ---
 

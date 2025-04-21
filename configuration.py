@@ -23,26 +23,25 @@ class ModelParameters:
             - n_jobs: number of parallel jobs 
             - verbose: verbosity level 
     """
-    # np.logspace(-3, 3, 7) = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
-    
+   
     ridge_params = {
-        'alpha_grid': np.logspace(-3, 3, 7), #[0.01, 0.1, 1.0, 10.0],  # drop plain 'alpha' if grid is used
-        'l1_ratio_grid': [0.0],           # Only one value: ridge behavior
+        'alpha_grid': np.logspace(-3, 3, 7), 
+        'l1_ratio_grid': [0.0],# Only one value: ridge behavior
     }
 
     lasso_params = {
-        'alpha_grid': np.logspace(-3, 3, 7), #[0.01, 0.1, 1.0, 10.0], #np.linspace(0.1, 2, 10),
-        'l1_ratio_grid': [1.0],           # Only one value: lasso behavior
+        'alpha_grid': np.logspace(-3, 3, 7),
+        'l1_ratio_grid': [1.0],# Only one value: lasso behavior
     }
 
     elastic_net_params = {
-        'alpha_grid': np.logspace(-3, 3, 7),#[0.01, 0.1, 1.0, 10.0], #[0.01, 0.1, 1.0, 10.0], 
+        'alpha_grid': np.logspace(-3, 3, 7),
         'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
     }
 
     adaptive_elastic_net_params = {
         'alpha_grid': np.logspace(-3, 3, 7), 
-        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], # [0.5]
+        'l1_ratio_grid': [1e-6, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         'gamma_grid': [1.0]
     }
 
@@ -52,9 +51,6 @@ class ModelParameters:
         'max_depth_grid': [3, 5, 7],
         'learning_rate_grid': [0.01, 0.1, 0.2],
         'cv': 5,
-        'n_estimators': 100,
-        'max_depth': 3,
-        'learning_rate': 0.1,
         'random_state': 42,
         'objective': 'reg:squarederror'
     }
@@ -74,13 +70,13 @@ class ModelSettings:
         - freq (str): The frequency of the data.
     """
     target = 'HR'
-    features = ["A1", "A2", "A3", "A4", "A5", "A6"]#, "A7"]
-    forecast_horizon = 96 # 96 for 15min, 24 for 1H
-    rolling_window_days = 165 # 165 own data, 30 or 61 for other paper. 
+    features = ["A1", "A2", "A3", "A4", "A5", "A6"]#, "A7"] # "A7" is used in the price data.
+    forecast_horizon = 96 # 96 for 15min, 24 for 1H for hr vs price resp.
+    rolling_window_days = 165
     datetime_col = 'datetime'
-    freq = '15min' #'15min' or '1H'
-    fit_intercept = False # False for own data, True for price data
-    standard_scaler_with_mean = False # False for own data, True for price data
+    freq = '15min' #'15min' or '1H' based on hr vs price resp.
+    fit_intercept = False # False for hr data, True for price data
+    standard_scaler_with_mean = False # False for hr data, True for price data
 
 
 @dataclass
