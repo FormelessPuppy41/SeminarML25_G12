@@ -15,14 +15,13 @@ from data.data_loader import DataLoader
 
 from configuration import ModelSettings, FileNames, ModelParameters
 
-"""
-import warnings
-from sklearn.exceptions import ConvergenceWarning
-warnings.filterwarnings("ignore", category=ConvergenceWarning)
-"""
-
 
 file_names = FileNames()
+
+def run_data_generation():
+    from combined_forecast.initial_forecasting.run_forecasts_real_errors import run_error_model_forecasts, evaluate_and_plot_forecasts
+    run_error_model_forecasts()
+    evaluate_and_plot_forecasts("data/data_files/input_files/error_model_combined_forecasts.csv")
 
 def run_models():
     model_settings = ModelSettings()
