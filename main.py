@@ -21,7 +21,7 @@ file_names = FileNames()
 def run_data_generation():
     from combined_forecast.initial_forecasting.run_forecasts_real_errors import run_error_model_forecasts, evaluate_and_plot_forecasts
     run_error_model_forecasts()
-    evaluate_and_plot_forecasts("data/data_files/input_files/error_model_combined_forecasts.csv")
+    #evaluate_and_plot_forecasts("data/data_files/input_files/data_ander_groepje.csv")
 
 def run_models():
     model_settings = ModelSettings()
@@ -82,7 +82,7 @@ def run_results(file_name: str):
     )
 
 if __name__ == "__main__":
-    run_models() 
+    """run_models() 
 
     print("\n\nRUNNING SIMPLE AVERAGE RESULTS")
     run_results(file_names.model_result_files.simple_average_forecast)
@@ -105,4 +105,6 @@ if __name__ == "__main__":
     print("\n\nRUNNING RIDGE RESULTS")
     run_results(file_names.model_result_files.ridge_forecast)
 
-    print("\n\n\n!!!DO NOT FORGET TO RUN THE ELASTIC NET WITH FIXED ALPHA!!!\n\n\n")
+    print("\n\n\n!!!DO NOT FORGET TO RUN THE ELASTIC NET WITH FIXED ALPHA!!!\n\n\n")"""
+
+    run_data_generation()

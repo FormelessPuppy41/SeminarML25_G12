@@ -247,11 +247,14 @@ def evaluate_and_plot_forecasts(filepath: str):
         pca.fit(forecasts_standardized)
         
         explained_variance = pca.explained_variance_ratio_
-        
-        # Print out the explained variance ratios
+        loadings = pca.components_
+
+        # Print out the explained variance ratios and corresponding loadings
         print("Explained Variance Ratio per Principal Component:")
         for i, ratio in enumerate(explained_variance, start=1):
             print(f"Component {i}: {ratio:.2f}")
+            print(f"Loadings for Component {i}: {loadings[i-1, :]}")
+
         
         # Plot the scree plot
         plt.figure(figsize=(8, 4))
@@ -337,9 +340,9 @@ def evaluate_and_plot_forecasts(filepath: str):
     test_pca_variability(df, forecast_cols2)
     #plot_forecasts_per_year(df, forecast_cols)
     plot_correlation_heatmap(df, forecast_cols)
-    plot_mse_per_year(df, forecast_cols)
+    #plot_mse_per_year(df, forecast_cols)
     #plot_mse_per_month(df, forecast_cols)
-    evaluate_monthly_forecaster_rank(df, forecast_cols, ModelSettings.target, ModelSettings.datetime_col)
+    #evaluate_monthly_forecaster_rank(df, forecast_cols, ModelSettings.target, ModelSettings.datetime_col)
 
 
 if __name__ == "__main__":
