@@ -39,7 +39,6 @@ def run_ridge(
 
 def run_day_ahead_ridge(
     df: pd.DataFrame,
-    #flag_matrix_df: pd.DataFrame,
     target_column: str,
     feature_columns: List[str],
     forecast_horizon: int = 96,
@@ -55,7 +54,6 @@ def run_day_ahead_ridge(
 
     Args:
         df: DataFrame with datetime index or datetime_col, and feature/target data.
-        #flag_matrix_df: DataFrame with flags for each feature.
         target_column: The column to forecast.
         feature_columns: List of input feature names.
         forecast_horizon: Number of 15-min intervals (default=96 for one day).
@@ -70,7 +68,6 @@ def run_day_ahead_ridge(
     # Run the ElasticNet model
     return run_day_ahead_elastic_net(
         df=df,
-        #flag_matrix_df=flag_matrix_df,
         target_column=target_column,
         feature_columns=feature_columns,
         forecast_horizon=forecast_horizon,

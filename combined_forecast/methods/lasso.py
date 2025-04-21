@@ -56,7 +56,6 @@ def run_day_ahead_lasso(
 
     Args:
         df: DataFrame with datetime index or datetime_col, and feature/target data.
-        #flag_matrix_df: DataFrame with flags for the features.
         target_column: The column to forecast.
         feature_columns: List of input feature names.
         forecast_horizon: Number of 15-min intervals (default=96 for one day).
@@ -74,7 +73,6 @@ def run_day_ahead_lasso(
     # Run the ElasticNet model
     return run_day_ahead_elastic_net(
         df=df,
-        #flag_matrix_df=flag_matrix_df,
         target_column=target_column,
         feature_columns=feature_columns,
         forecast_horizon=forecast_horizon,

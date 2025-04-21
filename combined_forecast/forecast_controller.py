@@ -16,7 +16,6 @@ class ForecastController:
 
     Input:
         - df: pandas DataFrame
-        - #flag_matrix_df: pandas DataFrame with the flag matrix
         - target: target column name
         - features: list of feature column names
         - forecast_horizon: forecast horizon
@@ -34,7 +33,6 @@ class ForecastController:
     def __init__(
             self, 
             df: pd.DataFrame, 
-            #flag_matrix_df: pd.DataFrame,
             target: str, 
             features: List[str],
             forecast_horizon: int = 96,
@@ -44,7 +42,6 @@ class ForecastController:
         ):
         # Initialize input parameters
         self._df = df
-        #self._flag_matrix_df = flag_matrix_df
         self._target = target
         self._features = features
         self._forecast_horizon = forecast_horizon
@@ -58,7 +55,6 @@ class ForecastController:
         # Initialize forecast runner
         self._forecast_runner = ForecastRunner(
             df=self._df,
-            #flag_matrix_df=self._flag_matrix_df,
             target=self._target,
             features=self._features,
             forecast_horizon=self._forecast_horizon,
@@ -107,7 +103,7 @@ class ForecastController:
         self._forecast_writer.write_forecast(forecast=lasso_result, file_name=self._file_names.lasso_forecast)
 
     
-    def forecast_elastic_net(self):
+    def forecast_elastic_net(self, bool_tune: bool = False):
         """
         Run the elastic net regression model and write the forecast to a CSV file
         """
@@ -116,7 +112,10 @@ class ForecastController:
                 lambda: self._forecast_runner.run_elastic_net(input_params=elastic_net_params),
                 forecast_name='Elastic Net'
             )
-        self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.elastic_net_forecast)
+        if bool_tune:
+            self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.tune_elastic_net_forecast)
+        else: 
+            self._forecast_writer.write_forecast(forecast=elastic_net_result, file_name=self._file_names.elastic_net_forecast)
 
     
     def forecast_adaptive_elastic_net(self):

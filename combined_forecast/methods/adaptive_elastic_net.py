@@ -44,7 +44,6 @@ def run_day_ahead_adaptive_elastic_net(
         rolling_window_days=rolling_window_days,
         enet_params=enet_params,
         datetime_col=datetime_col,
-        freq=freq,
-        l1_grid=True
+        freq=freq
     )
 

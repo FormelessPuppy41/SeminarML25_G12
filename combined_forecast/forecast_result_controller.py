@@ -50,10 +50,26 @@ class ForecastResultController:
         This method is used to compute the metrics for the forecast results.
         """
         result_df = DataLoader().load_model_results(file_name)
-        ic(result_df.head())
+        print(f"Shape of DF: {result_df.shape}")
         print(compute_yearly_rmse(result_df))
         forecast_result_processor = ForecastResultProcessor(result_df)
         ic(forecast_result_processor.compute_metrics())
+
+    def visualise_alpha_l1(self, file_name: str = file_names.model_result_files.ridge_forecast):
+        """
+        This method is used to visualise the alpha and l1 ratio for the forecast results.
+        """
+        result_df = DataLoader().load_model_results(file_name)
+        forecast_result_processor = ForecastResultProcessor(result_df)
+        forecast_result_processor.plot_daily_alpha_l1(result_df)
+
+    def visualise_alpha_l1_in_grid(self, list_file_names: list = [file_names.model_result_files.ridge_forecast]):
+        dfs = []
+        for file_name in list_file_names:
+            result_df = DataLoader().load_model_results(file_name)
+            dfs.append(result_df)
+        forecast_result_processor = ForecastResultProcessor()
+        forecast_result_processor.plot_model_grid(dfs, list_file_names)
 
     def visualise_ridge(self):
         """
