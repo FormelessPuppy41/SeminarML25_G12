@@ -64,7 +64,7 @@ We generate synthetic forecasts, combine them using various machine learning met
 ## How to Run the Project
 
 1. **Set up the environment**  
-   Create a virtual environment (recommended: `.venv`) and install the required Python packages (e.g., `pandas`, `scikit-learn`, `xgboost`).
+   Create a virtual environment (recommended: `.venv`) and install the required Python packages (e.g., `pandas`, `scikit-learn`, `xgboost`). We used random seed 42 for all calculations containing randomness.
 
 2. **Configure model settings**  
    Open the `configuration.py` file and adjust the `ModelSettings` class based on the data you want to use:
