@@ -100,6 +100,9 @@ We generate synthetic forecasts, combine them using various machine learning met
    ```
    This loads the correct dataset based on your settings, applies preprocessing, runs the forecast models, and saves results automatically.
 
+4. **Other scripts**
+  There are some files that need to be run seperately, such as: `transformer_autoregressive_3.py`, `bayesian_simulation_time_series_data`. These can be run using `python -m combined_forecast.methods.file_name`. Similarly, the `DMTest` and `weightFunctionPlot` can be run using `python -m combined_forecast.helpers.file_name`.
+
 ---
 
 ## Quick Notes:
